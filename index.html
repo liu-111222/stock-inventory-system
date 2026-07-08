@@ -1,0 +1,3287 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="订单管理">
+    <meta name="theme-color" content="#4A90E2">
+    <meta name="description" content="订单出货库存管理系统 - 支持云端同步">
+    <link rel="manifest" href="./manifest.json">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiBmaWxsPSIjNEE5MEUyIiByeD0iOCIvPjx0ZXh0IHg9IjMyIiB5PSI0MCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSIyNCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmaWxsPSIjZmZmIiBmb250LXdlaWdodD0iYm9sZCI+5aSnPC90ZXh0Pjwvc3ZnPg==">
+    <title>订单出货库存管理系统</title>
+    <script src="xlsx.min.js"></script>
+    <script src="chart.min.js"></script>
+    <script src="chartjs-plugin-datalabels.min.js"></script>
+    <style>
+        :root {
+            --primary: #4a90e2;
+            --primary-light: #ecf5ff;
+            --success: #2ecc71;
+            --warning: #f39c12;
+            --danger: #e74c3c;
+            --bg: #f4f5f7;
+            --card: #ffffff;
+            --text: #333333;
+            --text-light: #999999;
+            --border: #e0e3e8;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", "PingFang SC", Roboto, sans-serif; background-color: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
+
+        /* ========== 登录页 ========== */
+        #login-page { position: fixed; inset: 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+        .login-box { background: white; padding: 40px 30px; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); width: 100%; max-width: 380px; }
+        .login-title { text-align: center; font-size: 22px; font-weight: 700; color: #333; margin-bottom: 4px; }
+        .login-subtitle { text-align: center; font-size: 13px; color: #999; margin-bottom: 28px; }
+        .login-group { margin-bottom: 16px; }
+        .login-group label { display: block; font-size: 13px; color: #555; margin-bottom: 6px; font-weight: 500; }
+        .login-input { width: 100%; padding: 12px 14px; border: 1.5px solid #e0e3e8; border-radius: 8px; font-size: 14px; outline: none; transition: border-color 0.2s; }
+        .login-input:focus { border-color: var(--primary); }
+        .login-btn { width: 100%; padding: 13px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 8px; }
+        .login-btn:active { opacity: 0.9; }
+        .login-footer { text-align: center; margin-top: 16px; font-size: 12px; color: #999; }
+        .login-footer span { color: var(--primary); cursor: pointer; }
+
+        /* ========== 主界面 ========== */
+        #main-page { display: none; max-width: 1400px; margin: 0 auto; padding: 16px; padding-bottom: 80px; }
+        .top-header { background: white; padding: 14px 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
+        .top-title { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 700; }
+        .top-title .sync-dot { font-size: 11px; color: var(--success); font-weight: 400; padding: 2px 8px; background: #e8f5e9; border-radius: 10px; }
+        .user-info { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+        .role-badge { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+        .role-admin { background: #ffebee; color: #d32f2f; }
+        .role-user { background: #e3f2fd; color: #1976d2; }
+        .logout-btn { padding: 6px 14px; background: #f5f5f5; color: #555; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; font-size: 12px; }
+        .logout-btn:hover { background: #eee; }
+
+        /* ========== 权限控制 ========== */
+        body:not(.is-admin) .admin-only { display: none !important; }
+
+        /* ========== 统计卡片 ========== */
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+        .stat-card { background: white; padding: 16px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); border-left: 4px solid; }
+        .stat-card.blue { border-color: var(--primary); }
+        .stat-card.green { border-color: var(--success); }
+        .stat-card.orange { border-color: var(--warning); }
+        .stat-card.red { border-color: var(--danger); }
+        .stat-label { font-size: 12px; color: var(--text-light); margin-bottom: 6px; font-weight: 500; }
+        .stat-value { font-size: 24px; font-weight: 700; color: var(--text); }
+        .stat-sub { font-size: 11px; color: var(--text-light); margin-top: 4px; }
+
+        /* ========== 筛选汇总条 ========== */
+        .filter-summary { background: linear-gradient(to right, #f8f9fa, #e9ecef); padding: 12px 16px; border-radius: 8px; margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 20px; align-items: center; font-size: 13px; }
+        .filter-summary .fs-item { display: flex; align-items: center; gap: 6px; }
+        .filter-summary .fs-label { color: #666; font-size: 12px; }
+        .filter-summary .fs-value { font-weight: 700; color: var(--primary); font-size: 15px; font-family: "Courier New", monospace; }
+        .filter-summary .fs-value.green { color: var(--success); }
+        .filter-summary .fs-value.orange { color: var(--warning); }
+        .filter-summary .fs-value.red { color: var(--danger); }
+        .filter-summary .fs-count { margin-left: auto; font-size: 12px; color: #888; }
+
+        /* ========== Tab 切换（桌面端顶部） ========== */
+        .tabs { background: white; border-radius: 12px; padding: 4px; display: flex; gap: 4px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); overflow-x: auto; }
+        .tab-item { padding: 10px 16px; cursor: pointer; border-radius: 8px; font-size: 13px; font-weight: 500; color: #666; white-space: nowrap; transition: all 0.2s; display: flex; align-items: center; gap: 6px; }
+        .tab-item:hover { background: #f5f5f5; }
+        .tab-item.active { background: var(--primary); color: white; box-shadow: 0 2px 8px rgba(74,144,226,0.3); }
+
+        /* ========== 手机端底部Tab栏 ========== */
+        .mobile-tabbar { display: none; position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid var(--border); padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); z-index: 100; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); }
+        .mobile-tabbar .mt-row { display: flex; justify-content: space-around; }
+        .mt-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px; cursor: pointer; border-radius: 8px; color: #999; font-size: 10px; transition: all 0.2s; }
+        .mt-item.active { color: var(--primary); background: rgba(74,144,226,0.08); font-weight: 600; }
+        .mt-item:active { background: rgba(74,144,226,0.15); transform: scale(0.97); }
+        .mt-item .mt-icon { font-size: 18px; }
+
+        /* ========== 表格区域 ========== */
+        .panel { background: white; padding: 16px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); margin-bottom: 16px; }
+        .panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; gap: 12px; flex-wrap: wrap; }
+        .panel-title { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+        .panel-title .hint { font-size: 11px; color: #999; font-weight: 400; }
+        .search-box { flex: 1; min-width: 180px; max-width: 360px; position: relative; }
+        .search-box input { width: 100%; padding: 8px 12px 8px 32px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; outline: none; }
+        .search-box input:focus { border-color: var(--primary); }
+        .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #bbb; font-size: 13px; }
+        .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+        .btn { padding: 8px 14px; border: none; border-radius: 8px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.15s; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+        .btn:hover { opacity: 0.88; box-shadow: 0 2px 6px rgba(0,0,0,0.12); }
+        .btn:active { transform: translateY(1px); }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-outline { background: white; color: #555; border: 1px solid #ddd; }
+        .btn-sm { padding: 5px 10px; font-size: 11px; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* ========== 表格样式（全部居中） ========== */
+        .table-wrap { max-height: 560px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; background: white; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: auto; }
+        thead { background: #f8f9fa; position: sticky; top: 0; z-index: 1; }
+        th {
+            padding: 11px 12px;
+            text-align: center;           /* ✅ 表头居中 */
+            font-weight: 700;
+            color: #555;
+            border-bottom: 2px solid var(--border);
+            white-space: nowrap;
+            font-size: 12px;
+            background: linear-gradient(to bottom, #f8f9fa, #eef2f7);
+        }
+        td {
+            padding: 10px 12px;
+            text-align: center !important;  /* ✅ 内容居中（覆盖内联样式） */
+            border-bottom: 1px solid #f0f2f5;
+            vertical-align: middle;
+        }
+        td.td-left, td[style*="text-align:left"] { text-align: left !important; padding-left: 14px; }
+        tbody tr:hover { background: #fafbfc; }
+        tbody tr:nth-child(even) { background: #fcfcfd; }
+        tbody tr:nth-child(even):hover { background: #f5f7fa; }
+        .qty-num { font-family: "Courier New", monospace; font-weight: 700; color: #333; text-align: center; }
+        .qty-warn { color: var(--warning); font-weight: 700; }
+        .qty-ok { color: var(--success); font-weight: 700; }
+        .qty-danger { color: var(--danger); font-weight: 700; }
+        .td-left { text-align: left !important; font-weight: 500; }
+        .badge { padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; display: inline-block; }
+        .badge-wait { background: #fff3e0; color: #e65100; }
+        .badge-part { background: #e3f2fd; color: #1565c0; }
+        .badge-done { background: #e8f5e9; color: #2e7d32; }
+        .badge-over { background: #ffebee; color: #c62828; }
+        .badge-stock-ok { background: #e8f5e9; color: #2e7d32; }
+        .badge-stock-warn { background: #fff3e0; color: #e65100; }
+        .badge-stock-low { background: #ffebee; color: #c62828; }
+        .badge-blue { background: #e3f2fd; color: #1565c0; }
+        .badge-grey { background: #eceff1; color: #546e7a; }
+        .badge-green { background: #e8f5e9; color: #2e7d32; }
+        .badge-red { background: #ffebee; color: #c62828; }
+
+        /* ========== 弹窗 ========== */
+        .modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 999; display: none; align-items: center; justify-content: center; padding: 16px; }
+        .modal-mask.show { display: flex; }
+        .modal-box { background: white; border-radius: 12px; width: 100%; max-width: 540px; max-height: 90vh; overflow-y: auto; }
+        .modal-header { padding: 16px 20px; border-bottom: 1px solid #f0f2f5; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: white; z-index: 2; }
+        .modal-title { font-size: 16px; font-weight: 700; }
+        .modal-close { background: none; border: none; font-size: 22px; color: #999; cursor: pointer; line-height: 1; padding: 0 4px; }
+        .modal-body { padding: 18px 20px; }
+        .modal-footer { padding: 12px 20px; border-top: 1px solid #f0f2f5; display: flex; gap: 8px; justify-content: flex-end; position: sticky; bottom: 0; background: white; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+        .form-row.single { grid-template-columns: 1fr; }
+        .form-row.triple { grid-template-columns: 1fr 1fr 1fr; }
+        .form-field label { display: block; font-size: 12px; color: #666; margin-bottom: 5px; font-weight: 500; }
+        .form-field label .req { color: var(--danger); }
+        .form-field input, .form-field select, .form-field textarea {
+            width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; outline: none;
+            -webkit-appearance: none; appearance: none;
+        }
+        .form-field input:focus, .form-field select:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(74,144,226,0.15); }
+        .form-field input[readonly] { background: #f5f5f5; color: #666; }
+        .form-input-sm { width: 100%; padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 12px; outline: none; }
+        .form-input-sm:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(74,144,226,0.15); }
+
+        /* ========== Toast ========== */
+        .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(50,50,50,0.95); color: white; padding: 12px 24px; border-radius: 8px; font-size: 14px; z-index: 9999; opacity: 0; transition: opacity 0.3s; pointer-events: none; max-width: 90vw; text-align: center; }
+        .toast.show { opacity: 1; }
+        .toast.success { background: rgba(46,204,113,0.95); }
+        .toast.error { background: rgba(231,76,60,0.95); }
+
+        /* ========== 用户管理 ========== */
+        .user-list { border: 1px solid #f0f2f5; border-radius: 8px; overflow: hidden; }
+        .user-row { display: grid; grid-template-columns: 1fr 1fr 100px 140px; padding: 12px 16px; border-bottom: 1px solid #f0f2f5; align-items: center; font-size: 13px; }
+        .user-row:last-child { border-bottom: none; }
+        .user-row:nth-child(even) { background: #fafbfc; }
+        .user-row .uname { font-weight: 600; }
+        .user-row .urole { color: var(--primary); font-weight: 500; font-size: 12px; }
+        .user-actions { display: flex; gap: 6px; justify-content: flex-end; }
+
+        /* ========== 图表 ========== */
+        .chart-wrap { height: 260px; position: relative; padding: 10px 0; }
+
+        /* ========== 空状态 ========== */
+        .empty-state { text-align: center; padding: 40px 20px; color: var(--text-light); }
+        .empty-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.4; }
+
+        .action-cell { white-space: nowrap; }
+        .action-cell .btn { margin: 0 2px; }
+
+        .readonly-notice { background: #fff8e1; border-left: 3px solid var(--warning); padding: 10px 14px; border-radius: 6px; font-size: 13px; color: #795548; margin-bottom: 12px; }
+
+        /* ========== 云端同步状态 ========== */
+        .cloud-sync-bar { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--success); padding: 3px 10px; background: #e8f5e9; border-radius: 10px; }
+        .cloud-sync-bar.loading { color: var(--warning); background: #fff3e0; }
+        .cloud-sync-bar.error { color: var(--danger); background: #ffebee; }
+
+        /* ========== 响应式：手机端 ========== */
+        @media (max-width: 768px) {
+            #main-page { padding: 10px; padding-bottom: 70px; max-width: 100%; }
+            .top-header { padding: 12px; border-radius: 10px; }
+            .top-title { font-size: 15px; }
+            .top-title .sync-dot { display: none; }
+            .user-info { font-size: 12px; gap: 6px; }
+            .logout-btn { padding: 4px 10px; font-size: 11px; }
+
+            /* 统计卡片改为2x2 */
+            .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+            .stat-card { padding: 12px; }
+            .stat-label { font-size: 11px; margin-bottom: 4px; }
+            .stat-value { font-size: 20px; }
+            .stat-sub { font-size: 10px; }
+
+            /* 顶部Tab栏隐藏，用底部Tab栏 */
+            .tabs { display: none; }
+            .mobile-tabbar { display: block; }
+
+            /* 面板 */
+            .panel { padding: 12px; border-radius: 10px; margin-bottom: 12px; }
+            .panel-header { margin-bottom: 10px; display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
+            .panel-title { font-size: 14px; }
+            .search-box { max-width: 100%; width: 100%; }
+            .search-box input { width: 100%; }
+            .btn-group { width: 100%; justify-content: flex-start; flex-wrap: wrap; }
+            .btn { padding: 7px 12px; font-size: 11px; }
+            .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            table { min-width: 640px; }
+            .cloud-sync-bar { font-size: 11px; }
+
+            /* 筛选汇总 */
+            .filter-summary { padding: 10px 12px; gap: 12px; font-size: 11px; flex-wrap: wrap; display: flex; }
+            .filter-summary .fs-item { flex: 1 1 auto; min-width: 0; }
+            .filter-summary .fs-count { width: 100%; flex-basis: 100%; border-top: 1px solid #eee; padding-top: 8px; margin-top: 2px; }
+            .filter-summary .fs-value { font-size: 13px; }
+
+            /* 表格缩小 */
+            table { font-size: 11px; }
+            th { padding: 8px 6px; font-size: 10px; }
+            td { padding: 8px 6px; font-size: 11px; }
+            .qty-num { font-size: 11px; }
+            .badge { padding: 2px 6px; font-size: 10px; }
+            .btn-sm { padding: 4px 8px; font-size: 10px; }
+
+            /* 表单 */
+            .form-row { grid-template-columns: 1fr; gap: 10px; margin-bottom: 10px; }
+            .form-row.triple { grid-template-columns: 1fr 1fr; }
+            .modal-box { border-radius: 12px; max-width: 100%; }
+            .modal-body { padding: 14px 16px; }
+            .modal-header { padding: 12px 16px; }
+            .modal-title { font-size: 15px; }
+            .modal-footer { padding: 10px 16px; }
+
+            /* 图表 */
+            .chart-wrap { height: 220px; }
+
+            /* 用户管理 */
+            .user-row { grid-template-columns: 1fr 1fr 100px; font-size: 12px; padding: 10px 12px; }
+            .user-row .urole { display: none; }
+        }
+
+        @media (max-width: 480px) {
+            .stat-value { font-size: 18px; }
+            .filter-summary { gap: 8px; font-size: 10px; padding: 8px 10px; }
+            .filter-summary .fs-value { font-size: 12px; }
+            table { font-size: 10px; }
+            th { padding: 7px 4px; font-size: 9px; }
+            td { padding: 7px 4px; font-size: 10px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ============ 登录页 ============ -->
+<div id="login-page">
+    <div class="login-box">
+        <div class="login-title">📋 订单库存管理</div>
+        <div class="login-subtitle">请登录以继续使用</div>
+        <div class="login-group">
+            <label>用户名</label>
+            <input type="text" id="login-username" class="login-input" placeholder="请输入用户名" autofocus>
+        </div>
+        <div class="login-group">
+            <label>密码</label>
+            <input type="password" id="login-password" class="login-input" placeholder="请输入密码" onkeydown="if(event.key==='Enter') tryLogin()">
+        </div>
+        <button class="login-btn" onclick="tryLogin()">登 录</button>
+        <div class="login-footer" style="color:#888;font-size:12px;line-height:1.8;">
+            <div>👑 管理员：admin / admin123</div>
+            <div>👤 普通用户：user / user123</div>
+        </div>
+        <div id="cloud-status" style="margin-top: 16px; text-align: center; font-size: 12px; color: #888;"></div>
+    </div>
+</div>
+
+<!-- ============ 主应用页 ============ -->
+<div id="main-page">
+
+    <div class="top-header">
+        <div class="top-title">
+            📦 订单·出货·库存管理系统
+            <span id="sync-status" class="cloud-sync-bar">云端同步</span>
+        </div>
+        <div class="user-info">
+            <span id="current-user"></span>
+            <span id="role-badge" class="role-badge"></span>
+            <button class="logout-btn admin-only" onclick="openLogModal()" style="margin-right:6px;">📝 日志</button>
+            <button class="logout-btn" onclick="logout()">退出</button>
+        </div>
+    </div>
+
+    <!-- 顶部统计 -->
+    <div class="stats-grid" id="stats-panel">
+        <div class="stat-card blue">
+            <div class="stat-label">订单总数</div>
+            <div class="stat-value" id="stat-order-count">0</div>
+            <div class="stat-sub" id="stat-order-amount">订单数量 0</div>
+        </div>
+        <div class="stat-card green">
+            <div class="stat-label">已出货订单</div>
+            <div class="stat-value" id="stat-ship-count">0</div>
+            <div class="stat-sub" id="stat-ship-amount">出货数量 0</div>
+        </div>
+        <div class="stat-card orange">
+            <div class="stat-label">未交订单(待出货)</div>
+            <div class="stat-value" id="stat-pending-count">0</div>
+            <div class="stat-sub" id="stat-pending-qty">未交数量 0</div>
+        </div>
+        <div class="stat-card red">
+            <div class="stat-label">库存预警(库存≤0)</div>
+            <div class="stat-value" id="stat-low-stock">0</div>
+            <div class="stat-sub" id="stat-total-stock">总库存量 0</div>
+        </div>
+    </div>
+
+    <!-- 顶部 Tab栏（桌面端） -->
+    <div class="tabs" id="tabs">
+        <div class="tab-item active" data-tab="order" onclick="switchTab('order')">📋 订单数据</div>
+        <div class="tab-item" data-tab="ship" onclick="switchTab('ship')">📤 出货数据</div>
+        <div class="tab-item" data-tab="stock" onclick="switchTab('stock')">📦 库存数据</div>
+        <div class="tab-item" data-tab="dashboard" onclick="switchTab('dashboard')">📈 数据看板</div>
+        <div class="tab-item" data-tab="stats" onclick="switchTab('stats')">📊 数据统计</div>
+        <div class="tab-item admin-only" data-tab="import" onclick="switchTab('import')">⬆️ Excel导入</div>
+        <div class="tab-item admin-only" data-tab="users" onclick="switchTab('users')" id="tab-users">👥 用户管理</div>
+        <div class="tab-item admin-only" onclick="openLogModal()">📝 操作日志</div>
+    </div>
+
+    <!-- ========== 订单数据面板 ========== -->
+    <div class="panel" id="panel-order">
+        <div class="panel-header">
+            <div class="panel-title">📋 订单数据 <span class="hint">（未交数量 = 订单数量 - 已出货数量，均来源于订单数据）</span></div>
+            <div class="search-box">
+                <span class="search-icon">🔍</span>
+                <input type="text" placeholder="搜索客户/产品/订单号..." id="order-search" oninput="renderOrders()">
+            </div>
+            <select id="order-customer-filter" onchange="renderOrders()" style="padding:8px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;min-width:140px;background:white;">
+                <option value="">全部客户</option>
+            </select>
+            <div style="display:flex;align-items:center;gap:4px;font-size:13px;color:#666;">
+                <span>下单日期：</span>
+                <input type="date" id="order-date-start" onchange="renderOrders()" style="padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:13px;">
+                <span>-</span>
+                <input type="date" id="order-date-end" onchange="renderOrders()" style="padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:13px;">
+                <button class="btn btn-sm btn-outline" onclick="document.getElementById('order-date-start').value='';document.getElementById('order-date-end').value='';renderOrders();">清除</button>
+            </div>
+            <div class="btn-group admin-only">
+                <button class="btn btn-primary" onclick="openOrderModal()">+ 新增订单</button>
+                <button class="btn btn-outline" onclick="exportExcel('order')">⬇ 导出</button>
+            </div>
+        </div>
+
+        <!-- 筛选汇总条 -->
+        <div class="filter-summary" id="order-summary">
+            <div class="fs-item"><span class="fs-label">筛选后订单：</span><span class="fs-value" id="fs-order-count">0</span> 条</div>
+            <div class="fs-item"><span class="fs-label">订单总数量：</span><span class="fs-value" id="fs-order-qty">0</span></div>
+            <div class="fs-item"><span class="fs-label">已出货：</span><span class="fs-value green" id="fs-order-shipped">0</span></div>
+            <div class="fs-item"><span class="fs-label">未交数量：</span><span class="fs-value orange" id="fs-order-pending">0</span></div>
+            <div class="fs-count" id="fs-order-all">共 0 条订单</div>
+        </div>
+
+        <div class="table-wrap">
+            <table id="order-table">
+                <thead>
+                    <tr>
+                        <th data-sort="customer" onclick="sortBy('order','customer',false)" style="cursor:pointer;">客户 ↕</th>
+                        <th data-sort="product" onclick="sortBy('order','product',false)" style="cursor:pointer;">产品名称 ↕</th>
+                        <th data-sort="orderQty" onclick="sortBy('order','orderQty',true)" style="cursor:pointer;">订单数量 ↕</th>
+                        <th data-sort="shippedQty" onclick="sortBy('order','shippedQty',true)" style="cursor:pointer;">已出货 ↕</th>
+                        <th data-sort="pendingQty" onclick="sortBy('order','pendingQty',true)" style="cursor:pointer;">未交数量 ↕</th>
+                        <th>订单号</th>
+                        <th>项号</th>
+                        <th data-sort="orderDate" onclick="sortBy('order','orderDate',false)" style="cursor:pointer;">下单日期 ↕</th>
+                        <th data-sort="dueDate" onclick="sortBy('order','dueDate',false)" style="cursor:pointer;">交期 ↕</th>
+                        <th>状态</th>
+                        <th class="admin-only">操作</th>
+                    </tr>
+                </thead>
+                <tbody id="order-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ========== 出货数据面板 ========== -->
+    <div class="panel" id="panel-ship" style="display:none;">
+        <div class="panel-header">
+            <div class="panel-title">📤 出货数据 <span class="hint">（出货明细记录）</span></div>
+            <div class="search-box">
+                <span class="search-icon">🔍</span>
+                <input type="text" placeholder="搜索客户/产品/订单号..." id="ship-search" oninput="renderShipments()">
+            </div>
+            <select id="ship-customer-filter" onchange="renderShipments()" style="padding:8px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;min-width:140px;background:white;">
+                <option value="">全部客户</option>
+            </select>
+            <div style="display:flex;align-items:center;gap:4px;font-size:13px;color:#666;">
+                <span>出货日期：</span>
+                <input type="date" id="ship-date-start" onchange="renderShipments()" style="padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:13px;">
+                <span>-</span>
+                <input type="date" id="ship-date-end" onchange="renderShipments()" style="padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:13px;">
+                <button class="btn btn-sm btn-outline" onclick="document.getElementById('ship-date-start').value='';document.getElementById('ship-date-end').value='';renderShipments();">清除</button>
+            </div>
+            <div class="btn-group admin-only">
+                <button class="btn btn-success" onclick="openShipModal()">+ 新增出货</button>
+                <button class="btn btn-outline" onclick="exportExcel('ship')">⬇ 导出</button>
+            </div>
+        </div>
+
+        <div class="filter-summary" id="ship-summary">
+            <div class="fs-item"><span class="fs-label">筛选后记录：</span><span class="fs-value" id="fs-ship-count">0</span> 条</div>
+            <div class="fs-item"><span class="fs-label">出货总数量：</span><span class="fs-value green" id="fs-ship-qty">0</span></div>
+            <div class="fs-item"><span class="fs-label">涉及客户：</span><span class="fs-value" id="fs-ship-customer">0</span> 个</div>
+            <div class="fs-item"><span class="fs-label">涉及产品：</span><span class="fs-value" id="fs-ship-product">0</span> 种</div>
+            <div class="fs-count" id="fs-ship-all">共 0 条出货</div>
+        </div>
+
+        <div class="table-wrap">
+            <table id="ship-table">
+                <thead>
+                    <tr>
+                        <th data-sort="customer" onclick="sortBy('ship','customer',false)" style="cursor:pointer;">客户 ↕</th>
+                        <th data-sort="product" onclick="sortBy('ship','product',false)" style="cursor:pointer;">产品名称 ↕</th>
+                        <th data-sort="shipQty" onclick="sortBy('ship','shipQty',true)" style="cursor:pointer;">出货数量 ↕</th>
+                        <th>订单号</th>
+                        <th>项号</th>
+                        <th data-sort="shipDate" onclick="sortBy('ship','shipDate',false)" style="cursor:pointer;">出货日期 ↕</th>
+                        <th class="admin-only">操作</th>
+                    </tr>
+                </thead>
+                <tbody id="ship-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ========== 库存数据面板 ========== -->
+    <div class="panel" id="panel-stock" style="display:none;">
+        <div class="panel-header">
+            <div class="panel-title">📦 库存数据</div>
+            <div class="search-box">
+                <span class="search-icon">🔍</span>
+                <input type="text" placeholder="搜索客户/产品/存放区域..." id="stock-search" oninput="renderStock()">
+            </div>
+            <select id="stock-customer-filter" onchange="renderStock()" style="padding:8px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;min-width:140px;background:white;">
+                <option value="">全部客户</option>
+            </select>
+            <div class="btn-group admin-only">
+                <button class="btn btn-success" onclick="openStockInModal()">+ 入库调整</button>
+                <button class="btn btn-outline" onclick="exportExcel('stock')">⬇ 导出</button>
+            </div>
+        </div>
+
+        <div class="filter-bar" style="display:flex; gap:10px; align-items:center; margin-bottom:10px; padding:10px 14px; background:#f8f9fa; border-radius:8px; flex-wrap:wrap;">
+            <span style="font-size:13px; color:#666; font-weight:500;">📌 状态筛选：</span>
+            <label style="display:flex; align-items:center; gap:4px; cursor:pointer; font-size:13px;">
+                <input type="radio" name="stock-status" value="all" checked onchange="renderStock()"> 全部
+            </label>
+            <label style="display:flex; align-items:center; gap:4px; cursor:pointer; font-size:13px;">
+                <input type="radio" name="stock-status" value="ok" onchange="renderStock()"> <span style="color:#2ecc71; font-weight:600;">● 正常</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:4px; cursor:pointer; font-size:13px;">
+                <input type="radio" name="stock-status" value="low" onchange="renderStock()"> <span style="color:#f39c12; font-weight:600;">● 低库存</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:4px; cursor:pointer; font-size:13px;">
+                <input type="radio" name="stock-status" value="empty" onchange="renderStock()"> <span style="color:#e74c3c; font-weight:600;">● 缺货</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:4px; cursor:pointer; font-size:13px;">
+                <input type="radio" name="stock-status" value="noorder" onchange="renderStock()"> <span style="color:#90a4ae; font-weight:600;">● 无订单</span>
+            </label>
+        </div>
+
+        <div class="filter-summary" id="stock-summary">
+            <div class="fs-item"><span class="fs-label">筛选后库存：</span><span class="fs-value" id="fs-stock-count">0</span> 条</div>
+            <div class="fs-item"><span class="fs-label">库存总数量：</span><span class="fs-value green" id="fs-stock-qty">0</span></div>
+            <div class="fs-item"><span class="fs-label">未交数量：</span><span class="fs-value orange" id="fs-stock-pending">0</span></div>
+            <div class="fs-item"><span class="fs-label">正常库存：</span><span class="fs-value" id="fs-stock-ok">0</span> 条</div>
+            <div class="fs-item"><span class="fs-label">缺货(≤0)：</span><span class="fs-value red" id="fs-stock-empty">0</span> 条</div>
+            <div class="fs-count" id="fs-stock-all">共 0 条库存</div>
+        </div>
+
+        <div class="table-wrap">
+            <table id="stock-table">
+                <thead>
+                    <tr>
+                        <th data-sort="customer" onclick="sortBy('stock','customer',false)" style="cursor:pointer;">客户 ↕</th>
+                        <th data-sort="product" onclick="sortBy('stock','product',false)" style="cursor:pointer;">产品名称 ↕</th>
+                        <th data-sort="stockQty" onclick="sortBy('stock','stockQty',true)" style="cursor:pointer;">库存数量 ↕</th>
+                        <th data-sort="pendingQty" onclick="sortBy('stock','pendingQty',true)" style="cursor:pointer;">未交数量 ↕</th>
+                        <th data-sort="stockDate" onclick="sortBy('stock','stockDate',false)" style="cursor:pointer;">入库时间 ↕</th>
+                        <th>存放区域</th>
+                        <th>状态</th>
+                        <th class="admin-only">操作</th>
+                    </tr>
+                </thead>
+                <tbody id="stock-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ========== 数据看板面板 ========== -->
+    <div class="panel" id="panel-dashboard" style="display:none;">
+        <div class="panel-header">
+            <div class="panel-title">📈 数据看板 <span class="hint" style="font-size:12px;">（核心指标一览）</span></div>
+        </div>
+
+        <!-- 8个关键指标卡片 -->
+        <div class="dashboard-grid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:12px; margin-bottom:16px;">
+            <div class="stat-card blue" style="margin:0;">
+                <div class="stat-label">📋 订单总数</div>
+                <div class="stat-value" id="d-order-count">0</div>
+                <div class="stat-sub" style="font-size:11px; color:#888; margin-top:4px;">订单数量 <span id="d-order-qty">0</span></div>
+            </div>
+            <div class="stat-card orange" style="margin:0;">
+                <div class="stat-label">⏳ 未交订单数</div>
+                <div class="stat-value" id="d-pending-count">0</div>
+                <div class="stat-sub" style="font-size:11px; color:#888; margin-top:4px;">未交数量 <span id="d-pending-qty" style="color:#e67e22; font-weight:700;">0</span></div>
+            </div>
+            <div class="stat-card green" style="margin:0;">
+                <div class="stat-label">✅ 已出货订单</div>
+                <div class="stat-value" id="d-shipped-count">0</div>
+                <div class="stat-sub" style="font-size:11px; color:#888; margin-top:4px;">出货数量 <span id="d-shipped-qty">0</span></div>
+            </div>
+            <div class="stat-card red" style="margin:0;">
+                <div class="stat-label">🚚 出货记录</div>
+                <div class="stat-value" id="d-ship-count">0</div>
+                <div class="stat-sub" style="font-size:11px; color:#888; margin-top:4px;">总出货 <span id="d-ship-qty">0</span></div>
+            </div>
+            <div class="stat-card blue" style="margin:0;">
+                <div class="stat-label">📦 库存种类</div>
+                <div class="stat-value" id="d-stock-kinds">0</div>
+                <div class="stat-sub" style="font-size:11px; color:#888; margin-top:4px;">总库存 <span id="d-stock-qty">0</span></div>
+            </div>
+            <div class="stat-card orange" style="margin:0;">
+                <div class="stat-label">⚠️ 低库存</div>
+                <div class="stat-value" id="d-low-stock">0</div>
+                <div class="stat-sub" style="font-size:11px; color:#888; margin-top:4px;">(库存 ≤ 100)</div>
+            </div>
+            <div class="stat-card red" style="margin:0;">
+                <div class="stat-label">🔴 缺货产品</div>
+                <div class="stat-value" id="d-out-stock">0</div>
+                <div class="stat-sub" style="font-size:11px; color:#888; margin-top:4px;">(库存 = 0)</div>
+            </div>
+            <div class="stat-card green" style="margin:0;">
+                <div class="stat-label">📋 无订单产品</div>
+                <div class="stat-value" id="d-no-order">0</div>
+                <div class="stat-sub" style="font-size:11px; color:#888; margin-top:4px;">(未交 = 0)</div>
+            </div>
+        </div>
+
+        <!-- 按客户分组统计 -->
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:16px; margin-bottom:16px;">
+            <div class="panel" style="margin:0; padding:12px;">
+                <div style="font-weight:700; color:#555; margin-bottom:10px; font-size:13px;">🏭 按客户统计（订单/出货/未交）</div>
+                <div style="max-height:380px; overflow:auto;">
+                    <table style="width:100%; font-size:12px;">
+                        <thead style="background:#f8f9fa; position:sticky; top:0;">
+                            <tr>
+                                <th style="padding:8px; text-align:left; font-weight:700; color:#555;">客户</th>
+                                <th style="padding:8px; text-align:center; font-weight:700; color:#555;">订单</th>
+                                <th style="padding:8px; text-align:center; font-weight:700; color:#555;">已出货</th>
+                                <th style="padding:8px; text-align:center; font-weight:700; color:#e67e22;">未交</th>
+                            </tr>
+                        </thead>
+                        <tbody id="d-customer-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="panel" style="margin:0; padding:12px;">
+                <div style="font-weight:700; color:#555; margin-bottom:10px; font-size:13px;">🏆 Top 10 产品（订单数量）</div>
+                <div style="max-height:380px; overflow:auto;">
+                    <table style="width:100%; font-size:12px;">
+                        <thead style="background:#f8f9fa; position:sticky; top:0;">
+                            <tr>
+                                <th style="padding:8px; text-align:center; font-weight:700; color:#555; width:40px;">#</th>
+                                <th style="padding:8px; text-align:left; font-weight:700; color:#555;">产品</th>
+                                <th style="padding:8px; text-align:center; font-weight:700; color:#4a90e2;">订单数</th>
+                                <th style="padding:8px; text-align:center; font-weight:700; color:#27ae60;">已出货</th>
+                                <th style="padding:8px; text-align:center; font-weight:700; color:#e67e22;">未交</th>
+                            </tr>
+                        </thead>
+                        <tbody id="d-product-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 订单状态饼图 + 库存状态饼图 -->
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:16px;">
+            <div class="panel" style="margin:0; padding:16px;">
+                <div style="font-weight:700; color:#555; margin-bottom:10px; font-size:13px;">📋 订单状态分布</div>
+                <div style="height:240px; position:relative;"><canvas id="chart-order-status"></canvas></div>
+            </div>
+            <div class="panel" style="margin:0; padding:16px;">
+                <div style="font-weight:700; color:#555; margin-bottom:10px; font-size:13px;">📦 库存状态分布</div>
+                <div style="height:240px; position:relative;"><canvas id="chart-stock-status"></canvas></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== 统计面板 ========== -->
+    <div class="panel" id="panel-stats" style="display:none;">
+        <div class="panel-header">
+            <div class="panel-title">📊 数据统计</div>
+        </div>
+        <div class="stats-grid" style="margin-bottom:16px;">
+            <div class="stat-card blue">
+                <div class="stat-label">产品种类数</div>
+                <div class="stat-value" id="total-products">0</div>
+            </div>
+            <div class="stat-card green">
+                <div class="stat-label">总库存量</div>
+                <div class="stat-value" id="total-stock-qty">0</div>
+            </div>
+            <div class="stat-card orange">
+                <div class="stat-label">订单总数量</div>
+                <div class="stat-value" id="total-order-qty-2">0</div>
+            </div>
+            <div class="stat-card red">
+                <div class="stat-label">出货总数量</div>
+                <div class="stat-value" id="total-ship-qty-2">0</div>
+            </div>
+        </div>
+        <div class="panel" style="margin:0 0 16px 0;padding:16px;">
+            <div class="chart-wrap"><canvas id="chart-stock"></canvas></div>
+        </div>
+        <div class="panel" style="margin:0 0 16px 0;padding:16px;">
+            <div class="chart-wrap"><canvas id="chart-ship"></canvas></div>
+        </div>
+        <div class="panel" style="margin:0;padding:16px;">
+            <div class="chart-wrap"><canvas id="chart-pending"></canvas></div>
+        </div>
+    </div>
+
+    <!-- ========== Excel导入面板 ========== -->
+    <div class="panel" id="panel-import" style="display:none;">
+        <div class="panel-header">
+            <div class="panel-title">⬆ Excel 批量导入 / 导出</div>
+        </div>
+        <div class="readonly-notice admin-only" style="display:none;">⚠️ 导入/导出功能仅供管理员使用，普通用户为只读查询模式。</div>
+        <div style="background:#f8f9fa;padding:14px 18px;border-radius:8px;margin-bottom:14px;font-size:12px;line-height:1.9;">
+            <b>📌 导入规则说明：</b><br>
+            · Excel工作簿需包含3个工作表，表名分别为：<b>「订单数据」「出货数据」「库存数据」</b><br>
+            · <b>订单数据表头：</b>客户 | 产品名称 | 订单数量 | 已出货 | 未交数量 | 订单号 | 项号 | 下单日期 | 交期<br>
+            · <b>出货数据表头：</b>客户 | 产品名称 | 出货数量 | 订单号 | 产品料号 | 出货日期<br>
+            · <b>库存数据表头：</b>客户 | 产品名称 | 库存数量 | 未交数量 | 入库时间 | 存放区域<br>
+            · <b style="color:var(--warning);">⚠️ 特别说明：</b>订单中的「已出货」和「未交数量」来源于订单数据表，<b>不会</b>通过出货表自动计算。
+        </div>
+        <div class="btn-group admin-only" style="margin-bottom: 12px;">
+            <label class="btn btn-primary" style="cursor:pointer;">📂 选择Excel文件<input type="file" id="file-input" accept=".xlsx,.xls" style="display:none;" onchange="handleFileUpload(event)"></label>
+            <button class="btn btn-outline" onclick="downloadTemplate()">⬇ 下载空白模板</button>
+            <button class="btn btn-success" onclick="exportExcel('all')">⬇ 导出全部数据</button>
+            <button class="btn btn-danger" onclick="confirmClearLocal()">🗑 清空本地数据</button>
+        </div>
+
+        <div class="panel" style="margin-bottom:14px;padding:0;background:#f0f7ff;border:1px solid #b3d9ff;">
+            <div class="panel-header" style="background:#e3f0ff;border-bottom:1px solid #b3d9ff;padding:10px 16px;">
+                <div class="panel-title" style="font-size:14px;">☁️ 云端同步配置 <span class="hint" style="font-size:11px;">（JSONBin，手机与电脑数据共享）</span></div>
+            </div>
+            <div style="padding:14px 16px;">
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:12px;">
+                    <div><label style="font-size:11px;color:#666;">BIN_ID</label><input type="text" id="cloud-bin" class="form-input-sm" placeholder="例如: 66abc123e666..."></div>
+                    <div><label style="font-size:11px;color:#666;">MASTER_KEY</label><input type="text" id="cloud-master" class="form-input-sm" placeholder="主密钥，用于写入"></div>
+                    <div><label style="font-size:11px;color:#666;">ACCESS_KEY（可选）</label><input type="text" id="cloud-access" class="form-input-sm" placeholder="访问密钥"></div>
+                </div>
+                <div class="btn-group admin-only" style="flex-wrap:wrap;">
+                    <button class="btn btn-outline" onclick="saveCloudSettings()">💾 保存配置</button>
+                    <button class="btn btn-primary" onclick="manualPushCloud()">⬆ 上传到云端</button>
+                    <button class="btn btn-success" onclick="manualPullCloud()">⬇ 从云端拉取</button>
+                    <button class="btn btn-outline" onclick="toggleCloudTest()">🔌 测试连接</button>
+                    <button class="btn btn-danger" onclick="confirmClearCloud()">🗑 清空云端数据</button>
+                    <button class="btn btn-outline" onclick="openCloudLog()">📋 查看日志</button>
+                </div>
+                <div style="margin-top:10px;padding:8px 12px;background:#fff8e6;border-left:3px solid #f5a623;border-radius:4px;font-size:11px;color:#666;line-height:1.7;">
+                    <b>💡 使用提示：</b><br>
+                    · 登录 <a href="https://jsonbin.io" target="_blank" style="color:#3498db;text-decoration:underline;">jsonbin.io</a> 免费注册账号<br>
+                    · 点击「+ New Bin」创建一个新的 Bin，在 Body 中填入 <code style="background:#f0f0f0;padding:1px 4px;border-radius:3px;">{"record":{}}</code> 然后点击「Create」<br>
+                    · 复制生成的 Bin ID（形如 66abc123e666...）填入上方 BIN_ID<br>
+                    · 在右上角头像 → API Keys 中创建 MASTER_KEY 填入上方<br>
+                    · 配置完成后点击「🔌 测试连接」验证是否成功<br>
+                    · 如遇问题点击「📋 查看日志」查看详细错误信息
+                </div>
+                <div id="cloud-status" style="margin-top:10px;font-size:12px;color:#666;line-height:1.7;"></div>
+                <div id="cloud-log" style="display:none;margin-top:10px;padding:10px;background:#1e1e1e;color:#d4d4d4;font-family:Consolas,Monaco,monospace;font-size:11px;line-height:1.6;border-radius:4px;max-height:200px;overflow-y:auto;white-space:pre-wrap;"></div>
+            </div>
+        </div>
+
+        <div id="import-preview" style="margin-top:12px;"></div>
+    </div>
+
+    <!-- ========== 用户管理面板 ========== -->
+    <div class="panel admin-only" id="panel-users" style="display:none;">
+        <div class="panel-header">
+            <div class="panel-title">👥 用户管理 <span class="hint">（仅管理员可见）</span></div>
+            <div class="btn-group admin-only">
+                <button class="btn btn-primary" onclick="openUserModal()">+ 新增用户</button>
+            </div>
+        </div>
+        <div class="user-list" id="user-list"></div>
+    </div>
+
+</div>
+
+<!-- ============ 手机端底部Tab栏 ============ -->
+<div class="mobile-tabbar">
+    <div class="mt-row">
+        <div class="mt-item active" data-tab="order" onclick="switchTab('order')"><span class="mt-icon">📋</span><span>订单</span></div>
+        <div class="mt-item" data-tab="ship" onclick="switchTab('ship')"><span class="mt-icon">📤</span><span>出货</span></div>
+        <div class="mt-item" data-tab="stock" onclick="switchTab('stock')"><span class="mt-icon">📦</span><span>库存</span></div>
+        <div class="mt-item" data-tab="dashboard" onclick="switchTab('dashboard')"><span class="mt-icon">📈</span><span>看板</span></div>
+        <div class="mt-item" data-tab="stats" onclick="switchTab('stats')"><span class="mt-icon">📊</span><span>统计</span></div>
+        <div class="mt-item admin-only" data-tab="import" onclick="switchTab('import')"><span class="mt-icon">⬆</span><span>导入</span></div>
+        <div class="mt-item admin-only" data-tab="users" onclick="switchTab('users')"><span class="mt-icon">👥</span><span>用户</span></div>
+    </div>
+</div>
+
+<!-- ============ 订单新增/编辑弹窗 ============ -->
+<div class="modal-mask" id="order-modal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <div class="modal-title" id="order-modal-title">新增订单</div>
+            <button class="modal-close" onclick="closeModal('order-modal')">×</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-row triple">
+                <div class="form-field"><label>客户 <span class="req">*</span></label><input type="text" id="f-order-customer" list="dl-order-customer" oninput="updateOrderProductDatalist()"></div>
+                <div class="form-field"><label>产品名称 <span class="req">*</span></label><input type="text" id="f-order-product" list="dl-order-product"></div>
+                <div class="form-field"><label>订单数量 <span class="req">*</span></label><input type="number" id="f-order-qty" min="0"></div>
+            </div>
+            <datalist id="dl-order-customer"></datalist>
+            <datalist id="dl-order-product"></datalist>
+            <div class="form-row triple">
+                <div class="form-field"><label>已出货数量</label><input type="number" id="f-order-shipped" min="0" value="0"></div>
+                <div class="form-field"><label>未交数量（自动）</label><input type="number" id="f-order-pending" readonly></div>
+                <div class="form-field"><label>订单号</label><input type="text" id="f-order-no"></div>
+            </div>
+            <div class="form-row triple">
+                <div class="form-field"><label>项号</label><input type="text" id="f-order-item"></div>
+                <div class="form-field"><label>下单日期</label><input type="date" id="f-order-date"></div>
+                <div class="form-field"><label>交期</label><input type="date" id="f-order-duedate"></div>
+            </div>
+            <div style="background:#e3f2fd;padding:10px 12px;border-radius:6px;font-size:11px;color:#1565c0;margin-top:6px;line-height:1.7;">
+                💡 说明：「未交数量」会根据（订单数量 - 已出货数量）自动计算。请直接填写「已出货数量」字段。
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="closeModal('order-modal')">取消</button>
+            <button class="btn btn-primary" onclick="saveOrder()">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- ============ 订单出货编辑弹窗 ============ -->
+<div class="modal-mask" id="order-ship-modal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <div class="modal-title">订单出货</div>
+            <button class="modal-close" onclick="closeModal('order-ship-modal')">×</button>
+        </div>
+        <div class="modal-body">
+            <div style="background:#fff3e0;padding:10px 12px;border-radius:6px;font-size:12px;color:#e65100;margin-bottom:10px;line-height:1.8;">
+                💡 说明：本次出货后，系统会自动：①更新订单已出货数量；②生成一条出货明细记录；③扣减对应产品库存。
+            </div>
+            <div class="form-row triple">
+                <div class="form-field"><label>客户</label><input type="text" id="fos-customer" readonly style="background:#f5f5f5;"></div>
+                <div class="form-field"><label>产品名称</label><input type="text" id="fos-product" readonly style="background:#f5f5f5;"></div>
+                <div class="form-field"><label>订单号</label><input type="text" id="fos-orderno" readonly style="background:#f5f5f5;"></div>
+            </div>
+            <div class="form-row triple">
+                <div class="form-field"><label>订单数量</label><input type="text" id="fos-orderqty" readonly style="background:#f5f5f5;"></div>
+                <div class="form-field"><label>已出货</label><input type="text" id="fos-shipped" readonly style="background:#f5f5f5;"></div>
+                <div class="form-field"><label>未交数量</label><input type="text" id="fos-pending" readonly style="background:#f5f5f5;color:#c62828;font-weight:600;"></div>
+            </div>
+            <div class="form-row triple">
+                <div class="form-field"><label>本次出货数量 <span class="req">*</span></label><input type="number" id="fos-qty" min="1" oninput="fosUpdatePreview()"></div>
+                <div class="form-field"><label>出货日期</label><input type="date" id="fos-date"></div>
+                <div class="form-field"><label>项号（自动）</label><input type="text" id="fos-sku" readonly style="background:#f5f5f5;"></div>
+            </div>
+            <div style="background:#e8f5e9;padding:10px 12px;border-radius:6px;font-size:12px;color:#2e7d32;margin-top:6px;line-height:1.8;">
+                📦 本次出货后：<b>订单未交</b> = <span id="fos-after-pending">0</span> ｜ <b>剩余库存</b> = <span id="fos-after-stock">0</span>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="closeModal('order-ship-modal')">取消</button>
+            <button class="btn btn-success" onclick="confirmOrderShip()">确认出货</button>
+        </div>
+    </div>
+</div>
+
+<!-- ============ 出货新增弹窗 ============ -->
+<div class="modal-mask" id="ship-modal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <div class="modal-title">新增出货记录</div>
+            <button class="modal-close" onclick="closeModal('ship-modal')">×</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-row triple">
+                <div class="form-field"><label>客户 <span class="req">*</span></label><input type="text" id="f-ship-customer" list="dl-ship-customer" oninput="updateShipProductDatalist()"></div>
+                <div class="form-field"><label>产品名称 <span class="req">*</span></label><input type="text" id="f-ship-product" list="dl-ship-product"></div>
+                <div class="form-field"><label>出货数量 <span class="req">*</span></label><input type="number" id="f-ship-qty" min="1"></div>
+            </div>
+            <datalist id="dl-ship-customer"></datalist>
+            <datalist id="dl-ship-product"></datalist>
+            <div class="form-row triple">
+                <div class="form-field"><label>订单号</label><input type="text" id="f-ship-no"></div>
+                <div class="form-field"><label>产品料号</label><input type="text" id="f-ship-sku"></div>
+                <div class="form-field"><label>出货日期</label><input type="date" id="f-ship-date"></div>
+            </div>
+            <div style="background:#fff3e0;padding:10px 12px;border-radius:6px;font-size:11px;color:#e65100;margin-top:6px;line-height:1.7;">
+                💡 说明：出货记录为独立明细表，不会自动修改订单的已出货数量。如需更新订单，请前往订单数据编辑对应记录。
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="closeModal('ship-modal')">取消</button>
+            <button class="btn btn-success" onclick="saveShipment()">保存出货</button>
+        </div>
+    </div>
+</div>
+
+<!-- ============ 库存调整弹窗 ============ -->
+<div class="modal-mask" id="stock-modal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <div class="modal-title" id="stock-modal-title">库存调整 / 新增</div>
+            <button class="modal-close" onclick="closeModal('stock-modal')">×</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-row triple">
+                <div class="form-field"><label>客户 <span class="req">*</span></label><input type="text" id="f-stock-customer" list="dl-stock-customer" oninput="updateStockProductDatalist()"></div>
+                <div class="form-field"><label>产品名称 <span class="req">*</span></label><input type="text" id="f-stock-product" list="dl-stock-product" oninput="this.setAttribute('data-custom','1')"></div>
+                <div class="form-field"><label>库存数量 <span class="req">*</span></label><input type="number" id="f-stock-qty" min="0"></div>
+            </div>
+            <datalist id="dl-stock-customer"></datalist>
+            <datalist id="dl-stock-product"></datalist>
+            <div class="form-row triple">
+                <div class="form-field"><label>未交数量</label><input type="number" id="f-stock-pending" min="0" placeholder="未交 / 欠数量"></div>
+                <div class="form-field"><label>入库时间</label><input type="date" id="f-stock-date"></div>
+                <div class="form-field"><label>存放区域</label><input type="text" id="f-stock-location"></div>
+            </div>
+            <div style="background:#e8f5e9;padding:10px 12px;border-radius:6px;font-size:11px;color:#2e7d32;margin-top:6px;line-height:1.7;">
+                💡 说明：以「客户+产品名称」为标识，新增时若已存在则可选择覆盖更新。
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="closeModal('stock-modal')">取消</button>
+            <button class="btn btn-success" onclick="saveStock()">保存库存</button>
+        </div>
+    </div>
+</div>
+
+<!-- ============ 用户新增/编辑弹窗 ============ -->
+<div class="modal-mask" id="user-modal">
+    <div class="modal-box" style="max-width:420px;">
+        <div class="modal-header">
+            <div class="modal-title" id="user-modal-title">新增用户</div>
+            <button class="modal-close" onclick="closeModal('user-modal')">×</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-row single">
+                <div class="form-field"><label>用户名 <span class="req">*</span></label><input type="text" id="f-user-name"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-field"><label>密码 <span class="req">*</span></label><input type="password" id="f-user-password" placeholder="至少4位"></div>
+                <div class="form-field"><label>角色 <span class="req">*</span>
+                    <select id="f-user-role">
+                        <option value="user">普通用户（只读查询）</option>
+                        <option value="admin">管理员（全权限）</option>
+                    </select>
+                </div>
+            </div>
+            <div style="background:#f5f5f5;padding:10px 12px;border-radius:6px;font-size:11px;color:#666;margin-top:6px;line-height:1.7;">
+                <b>🔒 权限说明：</b><br>
+                · <b>管理员：</b>可查询 / 新增 / 编辑 / 删除所有数据，可管理用户账号<br>
+                · <b>普通用户：</b>仅可查询所有数据，不可进行任何新增/修改/删除操作
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="closeModal('user-modal')">取消</button>
+            <button class="btn btn-primary" onclick="saveUser()">保存用户</button>
+        </div>
+    </div>
+</div>
+
+<!-- ============ 操作日志弹窗 ============ -->
+<div class="modal-mask" id="log-modal">
+    <div class="modal-box" style="max-width:1100px;width:100%;">
+        <div class="modal-header">
+            <div class="modal-title">📝 操作日志 <span id="log-stats" style="font-size:12px;color:#999;font-weight:normal;margin-left:10px;"></span></div>
+            <button class="modal-close" onclick="closeModal('log-modal')">×</button>
+        </div>
+        <div class="modal-body" style="padding:14px 20px;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px;">
+                <div>
+                    <label style="font-size:11px;color:#666;">分类</label>
+                    <select class="form-input-sm" onchange="filterLogChange('category', this)">
+                        <option value="">全部分类</option>
+                        <option value="auth">登录</option>
+                        <option value="order">订单</option>
+                        <option value="ship">出货</option>
+                        <option value="stock">库存</option>
+                        <option value="data">数据</option>
+                        <option value="cloud">云端</option>
+                        <option value="user">用户</option>
+                        <option value="system">系统</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size:11px;color:#666;">用户</label>
+                    <select id="log-user-filter" class="form-input-sm" onchange="filterLogChange('user', this)">
+                        <option value="">全部用户</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size:11px;color:#666;">结果</label>
+                    <select class="form-input-sm" onchange="filterLogChange('success', this)">
+                        <option value="all">全部</option>
+                        <option value="ok">成功</option>
+                        <option value="fail">失败</option>
+                    </select>
+                </div>
+                <div style="grid-column:span 2;">
+                    <label style="font-size:11px;color:#666;">关键词搜索</label>
+                    <input type="text" class="form-input-sm" placeholder="搜索操作/详情/用户名" oninput="filterLogChange('keyword', this)">
+                </div>
+            </div>
+            <div style="display:flex;gap:8px;margin-bottom:10px;">
+                <button class="btn btn-outline" onclick="exportLogs()">⬇ 导出Excel</button>
+                <button class="btn btn-outline" onclick="clearLogs()">🗑 清空日志</button>
+            </div>
+            <div style="border:1px solid #e0e3e8;border-radius:8px;overflow:hidden;">
+                <div style="max-height:450px;overflow-y:auto;overflow-x:auto;">
+                    <table class="data-table" style="margin:0;border:none;width:100%;">
+                        <thead style="position:sticky;top:0;z-index:2;background:#f8f9fa;">
+                            <tr>
+                                <th style="width:160px;">时间</th>
+                                <th style="width:90px;">用户</th>
+                                <th style="width:80px;">角色</th>
+                                <th style="width:80px;">分类</th>
+                                <th style="width:120px;">操作</th>
+                                <th>详情</th>
+                                <th style="width:70px;">结果</th>
+                            </tr>
+                        </thead>
+                        <tbody id="log-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============ Toast ============ -->
+<div class="toast" id="toast"></div>
+
+<script>
+/* ====================================================
+   全局数据存储
+   ==================================================== */
+const STORAGE_KEY = 'inventory_system_data_v4';
+const USER_STORAGE_KEY = 'inventory_system_users_v4';
+const SESSION_KEY = 'inventory_system_session_v4';
+const CLOUD_CONFIG_KEY = 'inventory_system_cloud_v4';
+const LOG_STORAGE_KEY = 'inventory_system_logs_v4';
+
+// 日志收集（用于云端同步调试）
+const CLOUD_LOG = [];
+(function(){
+    const origLog = console.log.bind(console);
+    const origError = console.error.bind(console);
+    console.log = function() {
+        const msg = Array.from(arguments).map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
+        if(msg.indexOf('[云端]') !== -1) {
+            CLOUD_LOG.push('[' + new Date().toLocaleTimeString('zh-CN') + '] [LOG] ' + msg);
+            if(CLOUD_LOG.length > 100) CLOUD_LOG.shift();
+        }
+        origLog.apply(console, arguments);
+    };
+    console.error = function() {
+        const msg = Array.from(arguments).map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
+        if(msg.indexOf('[云端]') !== -1) {
+            CLOUD_LOG.push('[' + new Date().toLocaleTimeString('zh-CN') + '] [ERROR] ' + msg);
+            if(CLOUD_LOG.length > 100) CLOUD_LOG.shift();
+        }
+        origError.apply(console, arguments);
+    };
+})();
+
+function openCloudLog() {
+    const el = document.getElementById('cloud-log');
+    if(!el) return;
+    if(el.style.display === 'none') {
+        el.style.display = 'block';
+        el.textContent = CLOUD_LOG.length > 0 ? CLOUD_LOG.join('\n') : '暂无日志。请先点击「测试连接」「上传到云端」「从云端拉取」等按钮操作后再查看。';
+    } else {
+        el.style.display = 'none';
+    }
+}
+
+// 业务数据
+let DATA = {
+    orders: [],     // {id, customer, product, orderQty, shippedQty, pendingQty, orderNo, itemNo, orderDate, dueDate}
+    shipments: [],  // {id, customer, product, shipQty, orderNo, sku, shipDate}
+    stock: []       // {id, customer, product, stockQty, pendingQty, stockDate, location}
+};
+
+// 操作日志 { id, time, username, role, action, category, detail, success }
+let ACTION_LOGS = [];
+const LOG_MAX_ENTRIES = 500; // 日志最多保留 500 条
+
+// 用户数据（默认账户）
+let USERS = [
+    { username: 'admin', password: 'admin123', role: 'admin' },
+    { username: 'user',  password: 'user123',  role: 'user'  }
+];
+
+let CURRENT_USER = null;
+let editingOrderId = null;
+let editingStockId = null;
+let editingUsername = null;
+let chartStock = null;
+let chartShip = null;
+let chartPending = null;
+let chartOrderStatus = null;
+let chartStockStatus = null;
+if(window.ChartDataLabels) Chart.register(ChartDataLabels);
+
+/* ====================================================
+   数据压缩模块 - 用于云端同步（JSONBin 100KB 限制）
+   Token 空间设计（16-bit，0-65535）:
+     0 - 64999      → 字典索引（最多 65000 条字典条目）
+     65000          → UNICODE_MARKER（后跟一个 16-bit Unicode 字符码）
+     65001 - 65256  → ASCII 字符（值 - 65001 = 0-255）
+     65257 - 65535  → 保留
+   ==================================================== */
+(function(w){
+    var UNICODE_MARKER = 65000;
+    var ASCII_OFFSET = 65001;
+
+    // ========== LZ77 压缩 ==========
+    function compress(input) {
+        if(!input || input.length === 0) return [];
+        var dictionary = {};
+        var dictSize = 0;
+        var tokens = [];
+        var w = input.charAt(0);
+
+        for(var i = 1; i < input.length; i++) {
+            var c = input.charAt(i);
+            var wc = w + c;
+            if(dictionary[wc] !== undefined) {
+                w = wc;
+            } else {
+                // 输出 w 的 token
+                if(w.length === 1) {
+                    var code = w.charCodeAt(0);
+                    if(code < 256) {
+                        tokens.push(ASCII_OFFSET + code);
+                    } else {
+                        tokens.push(UNICODE_MARKER);
+                        tokens.push(code);
+                    }
+                } else {
+                    tokens.push(dictionary[w]);
+                }
+                // 把 wc 加入字典
+                if(dictSize < 65000) dictionary[wc] = dictSize++;
+                w = String(c);
+            }
+        }
+        // 输出最后一个 w
+        if(w.length === 1) {
+            var code2 = w.charCodeAt(0);
+            if(code2 < 256) tokens.push(ASCII_OFFSET + code2);
+            else { tokens.push(UNICODE_MARKER); tokens.push(code2); }
+        } else {
+            tokens.push(dictionary[w]);
+        }
+        return tokens;
+    }
+
+    // ========== LZ77 解压缩（对称） ==========
+    function decompress(tokens) {
+        if(!tokens || tokens.length === 0) return '';
+        var dictionary = [];
+        var dictSize = 0;
+        var result = [];
+        var k = 0;
+
+        // 读第一个 token（一定是字符）
+        var t0 = tokens[k++];
+        var w;
+        if(t0 === UNICODE_MARKER) {
+            w = String.fromCharCode(tokens[k++]);
+        } else if(t0 >= ASCII_OFFSET) {
+            w = String.fromCharCode(t0 - ASCII_OFFSET);
+        } else {
+            // 容错
+            w = String.fromCharCode(t0);
+        }
+        result.push(w);
+
+        while(k < tokens.length) {
+            var t = tokens[k++];
+            var entry;
+
+            if(t === UNICODE_MARKER) {
+                // 后面跟 Unicode 字符码
+                entry = String.fromCharCode(tokens[k++]);
+            } else if(t >= ASCII_OFFSET) {
+                // ASCII 字符
+                entry = String.fromCharCode(t - ASCII_OFFSET);
+            } else {
+                // 字典索引
+                if(t < dictSize) {
+                    entry = dictionary[t];
+                } else if(t === dictSize) {
+                    entry = w + w.charAt(0);
+                } else {
+                    console.error('[LZ77] 字典索引越界: t=' + t + ', dictSize=' + dictSize);
+                    return null;
+                }
+            }
+
+            if(!entry) {
+                console.error('[LZ77] entry 为空');
+                return null;
+            }
+            result.push(entry);
+            if(dictSize < 65000) dictionary[dictSize++] = w + entry.charAt(0);
+            w = entry;
+        }
+        return result.join('');
+    }
+
+    // ========== Token 数组 ↔ Base64（16-bit 拆成 2 字节） ==========
+    function tokensToBase64(tokens) {
+        var bytes = '';
+        for(var i = 0; i < tokens.length; i++) {
+            var v = tokens[i] & 0xFFFF;
+            bytes += String.fromCharCode((v >> 8) & 0xFF);
+            bytes += String.fromCharCode(v & 0xFF);
+        }
+        return btoa(bytes);
+    }
+    function base64ToTokens(b64) {
+        var bytes = atob(b64);
+        var tokens = [];
+        for(var i = 0; i < bytes.length; i += 2) {
+            var hi = bytes.charCodeAt(i);
+            var lo = bytes.charCodeAt(i + 1) || 0;
+            tokens.push((hi << 8) | lo);
+        }
+        return tokens;
+    }
+
+    // ========== 对外 API ==========
+    var Compressor = {
+        toBase64: function(input){
+            if(!input || input === '') return '';
+            try{
+                var tokens = compress(input);
+                var b64 = tokensToBase64(tokens);
+                console.log('[压缩] 原文: ' + input.length + ' 字符 → Token: ' + tokens.length + ' 个 → Base64: ' + b64.length + ' 字符 (约 ' + (b64.length/1024).toFixed(1) + ' KB)');
+                return b64;
+            }catch(e){
+                console.error('[压缩] 压缩失败:', e);
+                // 兜底：不压缩，UTF-8 + Base64
+                var utf8 = unescape(encodeURIComponent(input));
+                return 'RAW:' + btoa(utf8);
+            }
+        },
+        fromBase64: function(b64){
+            if(!b64 || b64 === '') return '';
+            try{
+                // 兜底格式检测
+                if(b64.indexOf('RAW:') === 0){
+                    var utf8 = atob(b64.substring(4));
+                    return decodeURIComponent(escape(utf8));
+                }
+                var tokens = base64ToTokens(b64);
+                var result = decompress(tokens);
+                if(!result){
+                    throw new Error('解压缩返回 null 或空');
+                }
+                console.log('[压缩] 解压成功: ' + result.length + ' 字符, Token数: ' + tokens.length);
+                return result;
+            }catch(e){
+                console.error('[压缩] 解压失败:', e);
+                throw e;
+            }
+        },
+        // 自测函数（可在浏览器控制台调用 window.Compressor.selfTest()）
+        selfTest: function(){
+            var tests = [
+                '{"a":"测试","b":123}',
+                '{"customer":"深圳市某某有限公司","product":"产品A","orderQty":100,"pendingQty":50}',
+                'abababab',
+                '{"data":{"orders":[{"customer":"测试客户","product":"产品1"}]}}'
+            ];
+            console.log('===== 压缩模块自测 =====');
+            for(var i = 0; i < tests.length; i++){
+                var original = tests[i];
+                try{
+                    var b64 = Compressor.toBase64(original);
+                    var restored = Compressor.fromBase64(b64);
+                    var ok = (original === restored);
+                    console.log('测试 ' + (i+1) + ': ' + (ok ? '✅ PASS' : '❌ FAIL') +
+                                ' (原文 ' + original.length + ' → Base64 ' + b64.length + ')');
+                    if(!ok){
+                        console.log('  原文:', original);
+                        console.log('  还原:', restored);
+                    }
+                }catch(e){
+                    console.log('测试 ' + (i+1) + ': ❌ ERROR -', e.message);
+                }
+            }
+            console.log('========================');
+        }
+    };
+    w.Compressor = Compressor;
+    // 页面加载后自动跑一次自测
+    setTimeout(function(){ Compressor.selfTest(); }, 500);
+})(window);
+
+/* 云端配置 */
+let CLOUD_CONFIG = {
+    BIN_ID: '',
+    MASTER_KEY: '',
+    ACCESS_KEY: ''
+};
+
+/* ====================================================
+   工具函数
+   ==================================================== */
+function genId() { return 'id_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8); }
+function todayStr() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+function fmtDate(d) { if(!d) return ''; const nd = normalizeDate(d); return nd || String(d).slice(0,10); }
+function escapeHtml(s) { if(s == null) return ''; return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtNum(n) { if(n == null || isNaN(n)) return '0'; return Number(n).toLocaleString('zh-CN'); }
+function cleanStr(s) { if(s == null) return ''; return String(s).replace(/[\u200B-\u200D\uFEFF\u00A0\u0000-\u001F]/g, '').replace(/\u3000/g, ' ').trim(); }
+
+function normalizeDate(v) {
+    if(v == null || v === '') return '';
+    if(v instanceof Date) {
+        const y = v.getFullYear(); const m = String(v.getMonth()+1).padStart(2,'0'); const d = String(v.getDate()).padStart(2,'0');
+        return y + '-' + m + '-' + d;
+    }
+    if(typeof v === 'number') {
+        try {
+            const days = Math.floor(v);
+            const epoch = new Date(1899, 11, 30);
+            const d = new Date(epoch.getTime() + days * 86400000);
+            return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+        } catch(e) {}
+    }
+    const s = String(v).trim();
+    const m1 = s.match(/^(\d{4})[-\/年.](\d{1,2})[-\/月.](\d{1,2})/);
+    if(m1) { return m1[1] + '-' + String(m1[2]).padStart(2,'0') + '-' + String(m1[3]).padStart(2,'0'); }
+    const m2 = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/);
+    if(m2) { return m2[3] + '-' + String(m2[1]).padStart(2,'0') + '-' + String(m2[2]).padStart(2,'0'); }
+    if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+    return '';
+}
+
+/* ====================================================
+   操作日志模块
+   分类: auth(登录/退出), order(订单), ship(出货), stock(库存),
+        data(导入/导出/清空), cloud(云端同步), user(用户管理), system(系统)
+   ==================================================== */
+function logAction(action, category, detail, success) {
+    try {
+        const entry = {
+            id: 'log_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+            time: new Date().toISOString(),
+            username: CURRENT_USER ? CURRENT_USER.username : '未登录',
+            role: CURRENT_USER ? CURRENT_USER.role : 'guest',
+            action: action || '未知操作',
+            category: category || 'system',
+            detail: detail || '',
+            success: success === undefined ? true : !!success
+        };
+        ACTION_LOGS.unshift(entry);
+        if(ACTION_LOGS.length > LOG_MAX_ENTRIES) {
+            ACTION_LOGS.length = LOG_MAX_ENTRIES;
+        }
+        localStorage.setItem(LOG_STORAGE_KEY, JSON.stringify(ACTION_LOGS));
+        console.log('[日志] ' + entry.username + ' | ' + entry.action + ' | ' + entry.detail);
+    } catch(e) {
+        console.error('[日志写入失败] ' + e.message);
+    }
+}
+
+function loadLogs() {
+    try {
+        const raw = localStorage.getItem(LOG_STORAGE_KEY);
+        if(raw) {
+            const parsed = JSON.parse(raw);
+            if(Array.isArray(parsed)) ACTION_LOGS = parsed;
+        }
+    } catch(e) {
+        console.error('[日志加载失败] ' + e.message);
+        ACTION_LOGS = [];
+    }
+}
+
+function clearLogs() {
+    if(!requireAdmin('清空日志')) return;
+    if(!confirm('确认清空全部操作日志？此操作不可撤销！')) return;
+    ACTION_LOGS = [];
+    localStorage.removeItem(LOG_STORAGE_KEY);
+    renderLogList();
+    showToast('日志已清空', 'success');
+    logAction('清空日志', 'system', '', true);
+}
+
+function exportLogs() {
+    if(!requireAdmin('导出日志')) return;
+    if(ACTION_LOGS.length === 0) { showToast('暂无日志可导出', 'error'); return; }
+    const header = ['时间', '操作人', '角色', '操作类型', '分类', '操作详情', '结果'];
+    const rows = ACTION_LOGS.map(l => [
+        new Date(l.time).toLocaleString('zh-CN'),
+        l.username,
+        l.role === 'admin' ? '管理员' : (l.role === 'user' ? '普通用户' : '访客'),
+        l.action,
+        l.category,
+        l.detail,
+        l.success ? '成功' : '失败'
+    ]);
+    const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '操作日志');
+    const fileName = '操作日志_' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '.xlsx';
+    XLSX.writeFile(wb, fileName);
+    logAction('导出日志', 'data', '共 ' + ACTION_LOGS.length + ' 条', true);
+    showToast('日志导出成功', 'success');
+}
+
+let LOG_FILTER = { category: '', keyword: '', user: '', success: 'all' };
+function openLogModal() {
+    const el = document.getElementById('log-modal');
+    if(el) {
+        el.classList.add('show');
+        LOG_FILTER = { category: '', keyword: '', user: '', success: 'all' };
+        renderLogList();
+    }
+}
+
+function renderLogList() {
+    const tbody = document.getElementById('log-tbody');
+    const statsEl = document.getElementById('log-stats');
+    if(!tbody) return;
+
+    let rows = ACTION_LOGS.slice();
+
+    if(LOG_FILTER.category) {
+        rows = rows.filter(r => r.category === LOG_FILTER.category);
+    }
+    if(LOG_FILTER.user) {
+        rows = rows.filter(r => r.username === LOG_FILTER.user);
+    }
+    if(LOG_FILTER.success !== 'all') {
+        rows = rows.filter(r => (LOG_FILTER.success === 'ok' ? r.success : !r.success));
+    }
+    if(LOG_FILTER.keyword) {
+        const kw = LOG_FILTER.keyword.toLowerCase();
+        rows = rows.filter(r =>
+            (r.action || '').toLowerCase().includes(kw) ||
+            (r.detail || '').toLowerCase().includes(kw) ||
+            (r.username || '').toLowerCase().includes(kw)
+        );
+    }
+
+    const users = [...new Set(ACTION_LOGS.map(l => l.username))].sort();
+    const userSel = document.getElementById('log-user-filter');
+    if(userSel) {
+        userSel.innerHTML = '<option value="">全部用户</option>' + users.map(u => `<option value="${escapeHtml(u)}" ${u === LOG_FILTER.user ? 'selected' : ''}>${escapeHtml(u)}</option>`).join('');
+    }
+
+    if(statsEl) {
+        const successCount = ACTION_LOGS.filter(l => l.success).length;
+        const failCount = ACTION_LOGS.length - successCount;
+        statsEl.innerHTML = '共 ' + ACTION_LOGS.length + ' 条记录 · 成功 ' + successCount + ' · 失败 ' + failCount + ' · 当前筛选 ' + rows.length + ' 条';
+    }
+
+    if(rows.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">📝</div>暂无日志记录</div></td></tr>';
+        return;
+    }
+
+    const catMap = { auth: '登录', order: '订单', ship: '出货', stock: '库存', data: '数据', cloud: '云端', user: '用户', system: '系统' };
+    tbody.innerHTML = rows.slice(0, 200).map(l => {
+        const catLabel = catMap[l.category] || l.category;
+        return `<tr>
+            <td style="font-size:12px;">${new Date(l.time).toLocaleString('zh-CN')}</td>
+            <td style="text-align:center;">${escapeHtml(l.username)}</td>
+            <td style="text-align:center;"><span class="badge ${l.role === 'admin' ? 'badge-blue' : 'badge-grey'}">${l.role === 'admin' ? '管理员' : (l.role === 'user' ? '普通用户' : '访客')}</span></td>
+            <td style="text-align:center;"><span class="badge badge-blue">${escapeHtml(catLabel)}</span></td>
+            <td style="text-align:left; padding-left:10px;">${escapeHtml(l.action)}</td>
+            <td style="text-align:left; padding-left:10px; color:#666; font-size:12px;">${escapeHtml(l.detail)}</td>
+            <td style="text-align:center;"><span class="badge ${l.success ? 'badge-green' : 'badge-red'}">${l.success ? '成功' : '失败'}</span></td>
+        </tr>`;
+    }).join('');
+}
+
+function filterLogChange(key, el) {
+    const val = el.value;
+    LOG_FILTER[key] = val;
+    renderLogList();
+}
+
+function showToast(msg, type) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast show' + (type ? ' ' + type : '');
+    setTimeout(() => { t.className = 'toast'; }, 2500);
+}
+
+/* ========== 本地存储 ========== */
+function loadData() {
+    try { const raw = localStorage.getItem(STORAGE_KEY); if(raw) DATA = normalizeData(JSON.parse(raw)); } catch(e) { console.error(e); }
+    // 数据兼容修复：若出货记录 orderNo 为空但 sku 有值（旧数据导入问题）
+    if(DATA.shipments) {
+        DATA.shipments.forEach(s => {
+            if(!s.orderNo && s.sku) { s.orderNo = s.sku; s.sku = ''; }
+        });
+    }
+}
+function saveData() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(DATA));
+    var hasData = DATA.orders.length + DATA.shipments.length + DATA.stock.length > 0;
+    if(hasData) saveToCloud();
+}
+function loadUsers() {
+    try {
+        const raw = localStorage.getItem(USER_STORAGE_KEY);
+        if(raw) {
+            const loaded = JSON.parse(raw);
+            if(Array.isArray(loaded) && loaded.length > 0) {
+                USERS = loaded;
+            } else {
+                USERS = [
+                    { username: 'admin', password: 'admin123', role: 'admin' },
+                    { username: 'user',  password: 'user123',  role: 'user'  }
+                ];
+                saveUsers();
+            }
+        }
+    } catch(e) {
+        console.error('加载用户数据失败:', e);
+        USERS = [
+            { username: 'admin', password: 'admin123', role: 'admin' },
+            { username: 'user',  password: 'user123',  role: 'user'  }
+        ];
+    }
+    if(!USERS.find(u => u.role === 'admin')) {
+        USERS.push({ username: 'admin', password: 'admin123', role: 'admin' });
+        saveUsers();
+    }
+}
+function saveUsers() {
+    localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(USERS));
+}
+function loadCloudConfig() {
+    try { const raw = localStorage.getItem(CLOUD_CONFIG_KEY); if(raw) CLOUD_CONFIG = JSON.parse(raw); } catch(e) {}
+}
+function saveCloudConfig() {
+    localStorage.setItem(CLOUD_CONFIG_KEY, JSON.stringify(CLOUD_CONFIG));
+}
+
+/* ====================================================
+   云端数据库 (JSONBin)
+   ==================================================== */
+function getApiUrl() { return `https://api.jsonbin.io/v3/b/${CLOUD_CONFIG.BIN_ID}`; }
+
+function setSyncStatus(status, text) {
+    const el = document.getElementById('sync-status');
+    if(!el) return;
+    el.className = 'cloud-sync-bar ' + (status || '');
+    el.textContent = text || '云端同步';
+}
+
+async function saveToCloud() {
+    if(!CLOUD_CONFIG.BIN_ID || !CLOUD_CONFIG.MASTER_KEY) return;
+    setSyncStatus('loading', '同步中...');
+    try {
+        // 压缩数据（JSONBin 免费版限制 100KB）
+        const rawPayload = JSON.stringify({ data: DATA, users: USERS });
+        const rawSizeKB = (rawPayload.length / 1024).toFixed(1);
+        const compressed = window.Compressor.toBase64(rawPayload);
+        const compressedSizeKB = (compressed.length / 1024).toFixed(1);
+        console.log('[云端] 自动上传 - 原始: ' + rawSizeKB + ' KB, 压缩后: ' + compressedSizeKB + ' KB, 压缩率: ' + (100 * compressed.length / rawPayload.length).toFixed(1) + '%');
+        
+        const bodyStr = JSON.stringify({ payload: compressed, compressed: true, updatedAt: new Date().toISOString() });
+        
+        const res = await fetch(getApiUrl(), {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Master-Key': CLOUD_CONFIG.MASTER_KEY,
+                'X-Access-Key': CLOUD_CONFIG.ACCESS_KEY || ''
+            },
+            body: bodyStr
+        });
+        if(res.ok) {
+            console.log('[云端] ✓ 自动上传成功');
+            setSyncStatus('', '✓ 已同步 ' + new Date().toLocaleTimeString().slice(0,5));
+        } else {
+            let errMsg0 = 'HTTP ' + res.status; try { const errJson0 = await res.json(); errMsg0 += ' - ' + (errJson0.message || errJson0.error || JSON.stringify(errJson0)); } catch(ee0) {} console.error('[云端] 上传失败: ' + errMsg0); setSyncStatus('error', '✗ 同步失败 (' + res.status + ')');
+        }
+    } catch(e) {
+        console.error('[云端] 网络错误: ' + e.message); setSyncStatus('error', '✗ 网络错误: ' + e.message);
+    }
+}
+
+/* 数据结构标准化：兼容历史字段名（inventory→stock 等），并清理隐形字符 */
+function normalizeData(rawData) {
+    if(!rawData) return { orders: [], shipments: [], stock: [] };
+    const stock = rawData.stock || rawData.inventory || [];
+    const orders = rawData.orders || [];
+    const shipments = rawData.shipments || [];
+    const cleanItem = (item) => {
+        if(!item || typeof item !== 'object') return item;
+        const cleaned = { ...item };
+        ['customer', 'product', 'orderNo', 'itemNo', 'sku', 'location'].forEach(f => {
+            if(cleaned[f] != null) cleaned[f] = cleanStr(cleaned[f]);
+        });
+        return cleaned;
+    };
+    return {
+        orders: Array.isArray(orders) ? orders.map(cleanItem) : [],
+        shipments: Array.isArray(shipments) ? shipments.map(cleanItem) : [],
+        stock: Array.isArray(stock) ? stock.map(cleanItem) : []
+    };
+}
+
+async function loadFromCloud() {
+    if(!CLOUD_CONFIG.BIN_ID || !CLOUD_CONFIG.MASTER_KEY) return false;
+    setSyncStatus('loading', '加载中...');
+    try {
+        const res = await fetch(`${getApiUrl()}/latest`, {
+            headers: {
+                'X-Master-Key': CLOUD_CONFIG.MASTER_KEY,
+                'X-Access-Key': CLOUD_CONFIG.ACCESS_KEY || ''
+            }
+        });
+        if(!res.ok) {
+            let errMsg1 = 'HTTP ' + res.status;
+            try { const errJson1 = await res.json(); errMsg1 += ' - ' + (errJson1.message || errJson1.error || JSON.stringify(errJson1)); } catch(ee1) {}
+            throw new Error(errMsg1);
+        }
+        const json = await res.json();
+        const record = json.record || (json.data && json.data.record) || {};
+        
+        let newData = null;
+        let newUsers = null;
+
+        // 支持压缩和未压缩两种格式
+        if(record.compressed && record.payload) {
+            console.log('[云端] 检测到压缩数据，正在解压...');
+            const decompressed = window.Compressor.fromBase64(record.payload);
+            if(decompressed) {
+                console.log('[云端] 解压原文前300字符: ' + decompressed.substring(0, 300));
+                const parsed = JSON.parse(decompressed);
+                console.log('[云端] parsed.data 结构: ' + JSON.stringify(parsed.data).substring(0, 200));
+                newData = parsed.data;
+                newUsers = parsed.users;
+                console.log('[云端] ✓ 解压 & 解析成功');
+            } else {
+                console.error('[云端] ✗ 解压失败，数据为空');
+                throw new Error('解压数据失败');
+            }
+        } else {
+            console.log('[云端] 使用未压缩格式');
+            console.log('[云端] record 结构: ' + JSON.stringify(record).substring(0, 300));
+            newData = record.data;
+            newUsers = record.users;
+        }
+
+        // 数据结构标准化（兼容旧字段名）
+        DATA = normalizeData(newData);
+        if(Array.isArray(newUsers) && newUsers.length > 0) USERS = newUsers;
+
+        console.log('[云端] 数据载入: 订单 ' + DATA.orders.length + ' 条, 出货 ' + DATA.shipments.length + ' 条, 库存 ' + DATA.stock.length + ' 条');
+        saveData();
+        saveUsers();
+        setSyncStatus('', '✓ 已加载 ' + new Date().toLocaleTimeString().slice(0,5));
+        return true;
+    } catch(e) {
+        console.error('[云端] 加载失败: ' + e.message);
+        setSyncStatus('error', '✗ 加载失败: ' + e.message);
+        return false;
+    }
+}
+
+/* ========== 云端同步管理 UI ========== */
+function populateCloudForm() {
+    const el = document.getElementById('cloud-bin');
+    if(el) { el.value = CLOUD_CONFIG.BIN_ID || ''; document.getElementById('cloud-master').value = CLOUD_CONFIG.MASTER_KEY || ''; document.getElementById('cloud-access').value = CLOUD_CONFIG.ACCESS_KEY || ''; }
+    updateCloudStatusDisplay();
+}
+function saveCloudSettings() {
+    if(!requireAdmin('云端配置')) return;
+    const bin = (document.getElementById('cloud-bin').value || '').trim();
+    const mk = (document.getElementById('cloud-master').value || '').trim();
+    const ak = (document.getElementById('cloud-access').value || '').trim();
+    CLOUD_CONFIG.BIN_ID = bin;
+    CLOUD_CONFIG.MASTER_KEY = mk;
+    CLOUD_CONFIG.ACCESS_KEY = ak;
+    saveCloudConfig();
+    logAction('更新云端配置', 'cloud', 'BIN_ID: ' + (bin ? bin.slice(0, 8) + '...' : '空'), true);
+    showToast('云端配置已保存', 'success');
+    updateCloudStatusDisplay();
+}
+function updateCloudStatusDisplay() {
+    const el = document.getElementById('cloud-status');
+    if(!el) return;
+    if(!CLOUD_CONFIG.BIN_ID) { el.innerHTML = '⚠️ 尚未配置 JSONBin，将使用本地存储'; el.style.color = '#e67e22'; return; }
+    el.innerHTML = '✓ 已配置 JSONBin · BIN_ID: ' + CLOUD_CONFIG.BIN_ID.slice(0, 8) + '...';
+    el.style.color = '#27ae60';
+}
+async function manualPushCloud() {
+    if(!requireAdmin('上传云端')) return;
+    if(!CLOUD_CONFIG.BIN_ID || !CLOUD_CONFIG.MASTER_KEY) { showToast('请先填写 BIN_ID 和 MASTER_KEY', 'error'); return; }
+    const el = document.getElementById('cloud-status');
+    el.innerHTML = '⬆ 正在上传到云端...';
+    el.style.color = '#3498db';
+    try {
+        // 压缩数据（JSONBin 免费版限制 100KB）
+        const rawPayload = JSON.stringify({ data: DATA, users: USERS });
+        const rawSizeKB = (rawPayload.length / 1024).toFixed(1);
+        const compressed = window.Compressor.toBase64(rawPayload);
+        const compressedSizeKB = (compressed.length / 1024).toFixed(1);
+        console.log('[云端] 手动上传 - 原始: ' + rawSizeKB + ' KB, 压缩后: ' + compressedSizeKB + ' KB, 压缩率: ' + (100 * compressed.length / rawPayload.length).toFixed(1) + '%');
+        
+        const bodyStr = JSON.stringify({ payload: compressed, compressed: true, updatedAt: new Date().toISOString() });
+        
+        const res = await fetch(getApiUrl(), {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Master-Key': CLOUD_CONFIG.MASTER_KEY,
+                'X-Access-Key': CLOUD_CONFIG.ACCESS_KEY || ''
+            },
+            body: bodyStr
+        });
+        if(res.ok) {
+            el.innerHTML = '✓ 上传成功 · ' + new Date().toLocaleTimeString().slice(0,5);
+            el.style.color = '#27ae60';
+            logAction('云端上传', 'cloud', '订单' + DATA.orders.length + ' 出货' + DATA.shipments.length + ' 库存' + DATA.stock.length + ' [' + compressedSizeKB + 'KB]', true);
+            showToast('已上传到云端', 'success');
+        } else {
+            let errMsg2 = 'HTTP ' + res.status;
+            try { const errJson2 = await res.json(); errMsg2 += ' - ' + (errJson2.message || errJson2.error || JSON.stringify(errJson2)); } catch(ee2) {}
+            console.error('[云端] 手动上传失败: ' + errMsg2);
+            el.innerHTML = '✗ 上传失败: ' + errMsg2;
+            el.style.color = '#e74c3c';
+            logAction('云端上传', 'cloud', errMsg2, false);
+            showToast('上传失败: ' + errMsg2, 'error');
+        }
+    } catch(e) {
+        el.innerHTML = '✗ 网络错误: ' + e.message;
+        el.style.color = '#e74c3c';
+        logAction('云端上传', 'cloud', e.message, false);
+        showToast('网络错误', 'error');
+    }
+}
+async function manualPullCloud() {
+    if(!requireAdmin('从云端拉取')) return;
+    if(!CLOUD_CONFIG.BIN_ID || !CLOUD_CONFIG.MASTER_KEY) { showToast('请先填写 BIN_ID 和 MASTER_KEY', 'error'); return; }
+    if(!confirm('确定要从云端拉取并覆盖本地数据吗？')) return;
+    const el = document.getElementById('cloud-status');
+    el.innerHTML = '⬇ 正在从云端拉取...';
+    el.style.color = '#3498db';
+    try {
+        const res = await fetch(`${getApiUrl()}/latest`, {
+            headers: {
+                'X-Master-Key': CLOUD_CONFIG.MASTER_KEY,
+                'X-Access-Key': CLOUD_CONFIG.ACCESS_KEY || ''
+            }
+        });
+        if(!res.ok) {
+            let errMsg3 = 'HTTP ' + res.status;
+            try { const errJson3 = await res.json(); errMsg3 += ' - ' + (errJson3.message || errJson3.error || JSON.stringify(errJson3)); } catch(ee3) {}
+            throw new Error(errMsg3);
+        }
+        const json = await res.json();
+        const record = json.record || (json.data && json.data.record) || {};
+        
+        let newData = null;
+        let newUsers = null;
+
+        // 支持压缩和未压缩两种格式
+        if(record.compressed && record.payload) {
+            console.log('[云端] 检测到压缩数据，正在解压...');
+            const decompressed = window.Compressor.fromBase64(record.payload);
+            if(decompressed) {
+                console.log('[云端] 解压原文前300字符: ' + decompressed.substring(0, 300));
+                const parsed = JSON.parse(decompressed);
+                console.log('[云端] parsed.data 结构: ', JSON.stringify(parsed.data).substring(0, 200));
+                newData = parsed.data;
+                newUsers = parsed.users;
+                console.log('[云端] ✓ 解压 & 解析成功');
+            } else {
+                throw new Error('解压数据失败 - 返回空');
+            }
+        } else {
+            console.log('[云端] 使用未压缩格式');
+            console.log('[云端] record 结构: ', JSON.stringify(record).substring(0, 300));
+            newData = record.data;
+            newUsers = record.users;
+        }
+
+        // 数据结构标准化
+        DATA = normalizeData(newData);
+        if(Array.isArray(newUsers) && newUsers.length > 0) USERS = newUsers;
+
+        console.log('[云端] 数据载入: 订单 ' + DATA.orders.length + ' 条, 出货 ' + DATA.shipments.length + ' 条, 库存 ' + DATA.stock.length + ' 条');
+        saveData();
+        saveUsers();
+        renderAll();
+        el.innerHTML = '✓ 拉取成功 · ' + new Date().toLocaleTimeString().slice(0,5);
+        el.style.color = '#27ae60';
+        logAction('云端拉取', 'cloud', '订单' + DATA.orders.length + ' 出货' + DATA.shipments.length + ' 库存' + DATA.stock.length, true);
+        showToast('已从云端拉取成功', 'success');
+    } catch(e) {
+        console.error('[云端] 拉取失败: ' + e.message);
+        el.innerHTML = '✗ 拉取失败: ' + e.message;
+        el.style.color = '#e74c3c';
+        logAction('云端拉取', 'cloud', e.message, false);
+        showToast('拉取失败: ' + e.message, 'error');
+    }
+}
+function confirmClearLocal() {
+    if(!requireAdmin('清空本地数据')) return;
+    if(!confirm('确认清空本地所有【订单 / 出货 / 库存】数据？\n\n此操作不可撤销！\n\n（用户账号、云端配置不会清空）')) return;
+    DATA.orders = [];
+    DATA.shipments = [];
+    DATA.stock = [];
+    saveData();
+    renderAll();
+    logAction('清空本地数据', 'data', '', true);
+    showToast('本地数据已清空，可以重新导入 Excel', 'success');
+}
+async function confirmClearCloud() {
+    if(!requireAdmin('清空云端数据')) return;
+    if(!CLOUD_CONFIG.BIN_ID || !CLOUD_CONFIG.MASTER_KEY) { showToast('请先填写 BIN_ID 和 MASTER_KEY', 'error'); return; }
+    if(!confirm('确认清空云端所有【订单 / 出货 / 库存】数据？\n\n清空后，其他设备也将看到空数据。\n\n此操作不可撤销！')) return;
+    const el = document.getElementById('cloud-status');
+    el.innerHTML = '🗑 正在清空云端...';
+    el.style.color = '#e74c3c';
+    try {
+        // 清空也用同样的压缩格式
+        const emptyData = { data: { orders: [], shipments: [], stock: [] }, users: (USERS || []) };
+        const rawPayload = JSON.stringify(emptyData);
+        const compressed = window.Compressor.toBase64(rawPayload);
+        const bodyStr = JSON.stringify({ payload: compressed, compressed: true, updatedAt: new Date().toISOString() });
+        console.log('[云端] 清空数据 - 压缩后: ' + (bodyStr.length / 1024).toFixed(1) + ' KB');
+        
+        const res = await fetch(getApiUrl(), {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Master-Key': CLOUD_CONFIG.MASTER_KEY,
+                'X-Access-Key': CLOUD_CONFIG.ACCESS_KEY || ''
+            },
+            body: bodyStr
+        });
+        if(res.ok) {
+            el.innerHTML = '✓ 云端已清空 · ' + new Date().toLocaleTimeString().slice(0,5);
+            el.style.color = '#27ae60';
+            logAction('清空云端', 'cloud', '', true);
+            showToast('云端数据已清空', 'success');
+        } else {
+            let errMsg4 = 'HTTP ' + res.status;
+            try { const errJson4 = await res.json(); errMsg4 += ' - ' + (errJson4.message || errJson4.error || JSON.stringify(errJson4)); } catch(ee4) {}
+            console.error('[云端] 清空失败: ' + errMsg4);
+            el.innerHTML = '✗ 清空失败: ' + errMsg4;
+            el.style.color = '#e74c3c';
+            logAction('清空云端', 'cloud', errMsg4, false);
+            showToast('清空失败: ' + errMsg4, 'error');
+        }
+    } catch(e) {
+        console.error('[云端] 清空失败: ' + e.message);
+        el.innerHTML = '✗ 清空失败: ' + e.message;
+        el.style.color = '#e74c3c';
+        logAction('清空云端', 'cloud', e.message, false);
+        showToast('清空失败: ' + e.message, 'error');
+    }
+}
+async function toggleCloudTest() {
+    if(!CLOUD_CONFIG.BIN_ID) { showToast('请先填写 BIN_ID', 'error'); return; }
+    const el = document.getElementById('cloud-status');
+    el.innerHTML = '🔌 测试连接中...';
+    el.style.color = '#3498db';
+    try {
+        const res = await fetch(`${getApiUrl()}/latest`, { method: 'GET', headers: { 'X-Master-Key': CLOUD_CONFIG.MASTER_KEY, 'X-Access-Key': CLOUD_CONFIG.ACCESS_KEY || '' } });
+        if(res.ok) {
+            const json = await res.json();
+            el.innerHTML = '✓ 连接成功 · 更新时间: ' + (json.record && json.record.updatedAt ? new Date(json.record.updatedAt).toLocaleString('zh-CN') : '未知');
+            el.style.color = '#27ae60';
+            showToast('连接成功', 'success');
+        } else {
+            let errMsg5 = 'HTTP ' + res.status;
+            try { const errJson5 = await res.json(); errMsg5 += ' - ' + (errJson5.message || errJson5.error || JSON.stringify(errJson5)); } catch(ee5) {}
+            console.error('[云端] 连接测试失败: ' + errMsg5);
+            el.innerHTML = '✗ 连接失败: ' + errMsg5;
+            el.style.color = '#e74c3c';
+            showToast('连接失败: ' + errMsg5, 'error');
+        }
+    } catch(e) {
+        console.error('[云端] 连接测试失败: ' + e.message);
+        el.innerHTML = '✗ 连接失败: ' + e.message;
+        el.style.color = '#e74c3c';
+        showToast('连接失败: ' + e.message, 'error');
+    }
+}
+
+/* ====================================================
+   登录 / 权限系统
+   ==================================================== */
+function tryLogin() {
+    const username = document.getElementById('login-username').value.trim();
+    const password = document.getElementById('login-password').value;
+    if(!username || !password) { showToast('请输入用户名和密码', 'error'); return; }
+
+    const user = USERS.find(u => u.username === username && u.password === password);
+    if(!user) {
+        logAction('登录失败', 'auth', '用户名: ' + username, false);
+        showToast('用户名或密码错误', 'error');
+        return;
+    }
+
+    CURRENT_USER = { username: user.username, role: user.role };
+    localStorage.setItem(SESSION_KEY, JSON.stringify(CURRENT_USER));
+    enterApp();
+    logAction('登录成功', 'auth', '', true);
+    showToast('欢迎，' + user.username, 'success');
+}
+
+function logout() {
+    if(!confirm('确定要退出登录吗？')) return;
+    const name = CURRENT_USER ? CURRENT_USER.username : '未知';
+    CURRENT_USER = null;
+    localStorage.removeItem(SESSION_KEY);
+    document.getElementById('login-page').style.display = 'flex';
+    document.getElementById('main-page').style.display = 'none';
+    document.getElementById('login-username').value = '';
+    document.getElementById('login-password').value = '';
+    logAction('退出登录', 'auth', '用户: ' + name, true);
+}
+
+function showFirstUse() {
+    alert('默认账户（首次使用后请在"用户管理"中修改密码或新增）：\n\n👑 管理员\n   用户名：admin   密码：admin123\n\n👤 普通用户（只读）\n   用户名：user    密码：user123');
+}
+
+function isAdmin() {
+    return CURRENT_USER && CURRENT_USER.role === 'admin';
+}
+
+function requireAdmin(actionName) {
+    if(!isAdmin()) {
+        showToast((actionName || '操作') + '：仅管理员可执行此操作', 'error');
+        return false;
+    }
+    return true;
+}
+
+function applyRolePermissions() {
+    const admin = isAdmin();
+
+    // 基于 body 类名控制 admin-only 元素显示（CSS 实现，对动态渲染元素也生效）
+    document.body.classList.toggle('is-admin', admin);
+
+    const userEl = document.getElementById('current-user');
+    const roleEl = document.getElementById('role-badge');
+    if(CURRENT_USER) {
+        userEl.textContent = '👤 ' + CURRENT_USER.username;
+        roleEl.textContent = admin ? '管理员' : '普通用户';
+        roleEl.className = 'role-badge ' + (admin ? 'role-admin' : 'role-user');
+    }
+}
+
+function enterApp() {
+    document.getElementById('login-page').style.display = 'none';
+    document.getElementById('main-page').style.display = 'block';
+    applyRolePermissions();
+    renderAll();
+    populateCloudForm();
+}
+
+/* ====================================================
+   Tab 切换
+   ==================================================== */
+function switchTab(tab) {
+    // 权限检查：普通用户不能访问管理员Tab
+    if((tab === 'import' || tab === 'users') && !isAdmin()) {
+        showToast('该功能仅管理员可用', 'error');
+        return;
+    }
+
+    // 桌面端
+    document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+    const activeTab = document.querySelector('.tab-item[data-tab="' + tab + '"]');
+    if(activeTab) activeTab.classList.add('active');
+
+    // 手机端
+    document.querySelectorAll('.mt-item').forEach(t => t.classList.remove('active'));
+    const activeMT = document.querySelector('.mt-item[data-tab="' + tab + '"]');
+    if(activeMT) activeMT.classList.add('active');
+
+    // 面板切换
+    ['order','ship','stock','dashboard','stats','import','users'].forEach(t => {
+        const panel = document.getElementById('panel-' + t);
+        if(panel) panel.style.display = (t === tab) ? '' : 'none';
+    });
+
+    if(tab === 'stats') renderStatsChart();
+    if(tab === 'dashboard') renderDashboard();
+    if(tab === 'users') renderUsers();
+    if(tab === 'import') populateCloudForm();
+}
+
+/* ====================================================
+   订单数据渲染 + 筛选汇总
+   ==================================================== */
+function renderOrders() {
+    const keyword = (document.getElementById('order-search').value || '').toLowerCase();
+    const custEl = document.getElementById('order-customer-filter');
+    const selectedCust = custEl ? cleanStr(custEl.value) : '';
+    const allCustomers = [...new Set(DATA.orders.map(x => cleanStr(x.customer)).filter(Boolean))].sort();
+    if(custEl) {
+        const curVal = selectedCust;
+        custEl.innerHTML = '<option value="">全部客户</option>' + allCustomers.map(c => `<option value="${escapeHtml(c)}" ${c === curVal ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('');
+    }
+    const tbody = document.getElementById('order-tbody');
+
+    let rows = DATA.orders.slice();
+    if(selectedCust) {
+        rows = rows.filter(o => cleanStr(o.customer) === selectedCust);
+    }
+    if(keyword) {
+        rows = rows.filter(o =>
+            cleanStr(o.customer).toLowerCase().includes(keyword) ||
+            cleanStr(o.product).toLowerCase().includes(keyword) ||
+            cleanStr(o.orderNo).toLowerCase().includes(keyword) ||
+            cleanStr(o.itemNo).toLowerCase().includes(keyword)
+        );
+    }
+
+    // 日期筛选
+    const startDateEl = document.getElementById('order-date-start');
+    const endDateEl = document.getElementById('order-date-end');
+    const dateStart = startDateEl ? startDateEl.value : '';
+    const dateEnd = endDateEl ? endDateEl.value : '';
+    if(dateStart || dateEnd) {
+        rows = rows.filter(o => {
+            const od = normalizeDate(o.orderDate);
+            if(!od) return false;
+            if(dateStart && od < dateStart) return false;
+            if(dateEnd && od > dateEnd) return false;
+            return true;
+        });
+    }
+
+    // 排序
+    const sortO = SORT_STATE.order;
+    if(sortO.key) {
+        rows.sort((a, b) => {
+            let va, vb;
+            if(sortO.key === 'pendingQty') {
+                va = (Number(a.orderQty) || 0) - (Number(a.shippedQty) || 0);
+                vb = (Number(b.orderQty) || 0) - (Number(b.shippedQty) || 0);
+            } else if(sortO.key === 'orderQty' || sortO.key === 'shippedQty') {
+                va = Number(a[sortO.key]) || 0;
+                vb = Number(b[sortO.key]) || 0;
+            } else {
+                va = (a[sortO.key] || '').toString();
+                vb = (b[sortO.key] || '').toString();
+            }
+            if(typeof va === 'number') return sortO.dir === 'asc' ? va - vb : vb - va;
+            return sortO.dir === 'asc' ? va.localeCompare(vb, 'zh') : vb.localeCompare(va, 'zh');
+        });
+    }
+
+    // 筛选汇总
+    const totalCount = DATA.orders.length;
+    const totalOrderQty = DATA.orders.reduce((s,o) => s + (Number(o.orderQty) || 0), 0);
+    const totalShipped = DATA.orders.reduce((s,o) => s + (Number(o.shippedQty) || 0), 0);
+    const totalPending = DATA.orders.reduce((s,o) => s + Math.max(0, (Number(o.orderQty) || 0) - (Number(o.shippedQty) || 0)), 0);
+
+    const filteredCount = rows.length;
+    const filteredOrderQty = rows.reduce((s,o) => s + (Number(o.orderQty) || 0), 0);
+    const filteredShipped = rows.reduce((s,o) => s + (Number(o.shippedQty) || 0), 0);
+    const filteredPending = rows.reduce((s,o) => s + Math.max(0, (Number(o.orderQty) || 0) - (Number(o.shippedQty) || 0)), 0);
+
+    document.getElementById('fs-order-count').textContent = filteredCount.toLocaleString();
+    document.getElementById('fs-order-qty').textContent = filteredOrderQty.toLocaleString();
+    document.getElementById('fs-order-shipped').textContent = filteredShipped.toLocaleString();
+    document.getElementById('fs-order-pending').textContent = filteredPending.toLocaleString();
+    document.getElementById('fs-order-all').textContent = '共 ' + totalCount.toLocaleString() + ' 条订单 | 总量 ' + totalOrderQty.toLocaleString();
+
+    // 更新顶部统计
+    const pendingCount = DATA.orders.filter(o => {
+        const ordQty = Number(o.orderQty) || 0;
+        const shQty = Number(o.shippedQty) || 0;
+        return (ordQty - shQty) > 0;
+    }).length;
+    document.getElementById('stat-order-count').textContent = totalCount.toLocaleString();
+    document.getElementById('stat-order-amount').textContent = '订单数量 ' + totalOrderQty.toLocaleString();
+    document.getElementById('stat-pending-count').textContent = pendingCount.toLocaleString();
+    document.getElementById('stat-pending-qty').textContent = '未交数量 ' + totalPending.toLocaleString();
+
+    // 表格渲染
+    if(rows.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="11"><div class="empty-state"><div class="empty-icon">📋</div>暂无订单数据</div></td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = rows.map(o => {
+        const orderQty = Number(o.orderQty) || 0;
+        const shippedQty = Number(o.shippedQty) || 0;
+        const pendingQty = Math.max(0, orderQty - shippedQty);
+
+        let statusText = '', statusCls = '';
+        if(pendingQty === 0 && orderQty > 0) { statusText = '已完成'; statusCls = 'badge-done'; }
+        else if(shippedQty > 0 && pendingQty > 0) { statusText = '部分出货'; statusCls = 'badge-part'; }
+        else if(shippedQty === 0) { statusText = '待出货'; statusCls = 'badge-wait'; }
+        else if(shippedQty > orderQty) { statusText = '超额出货'; statusCls = 'badge-over'; }
+
+        return `<tr>
+            <td style="text-align:left; padding-left:14px;">${escapeHtml(o.customer)}</td>
+            <td style="text-align:center; font-weight:600;">${escapeHtml(o.product)}</td>
+            <td class="qty-num">${orderQty.toLocaleString()}</td>
+            <td class="qty-num" style="color:var(--success);">${shippedQty.toLocaleString()}</td>
+            <td class="qty-num ${pendingQty > 0 ? 'qty-warn' : 'qty-ok'}">${pendingQty.toLocaleString()}</td>
+            <td>${escapeHtml(o.orderNo)}</td>
+            <td>${escapeHtml(o.itemNo)}</td>
+            <td>${fmtDate(o.orderDate)}</td>
+            <td>${fmtDate(o.dueDate)}</td>
+            <td><span class="badge ${statusCls}">${statusText}</span></td>
+            <td class="action-cell admin-only">
+                <button class="btn btn-sm btn-success" onclick="openOrderShipModal('${o.id}')">出货</button>
+                <button class="btn btn-sm btn-primary" onclick="editOrder('${o.id}')">编辑</button>
+                <button class="btn btn-sm btn-danger" onclick="deleteOrder('${o.id}')">删除</button>
+            </td>
+        </tr>`;
+    }).join('');
+
+    // 更新排序箭头
+    setTimeout(() => updateSortIndicator('order'), 0);
+}
+
+function openOrderModal() {
+    if(!requireAdmin('新增订单')) return;
+    editingOrderId = null;
+    document.getElementById('order-modal-title').textContent = '新增订单';
+    document.getElementById('f-order-customer').value = '';
+    document.getElementById('f-order-product').value = '';
+    document.getElementById('f-order-qty').value = '';
+    document.getElementById('f-order-shipped').value = '0';
+    document.getElementById('f-order-pending').value = '0';
+    document.getElementById('f-order-no').value = '';
+    document.getElementById('f-order-item').value = '';
+    document.getElementById('f-order-date').value = todayStr();
+    document.getElementById('f-order-duedate').value = '';
+    refreshOrderDatalists();
+    document.getElementById('order-modal').classList.add('show');
+}
+
+// 自动计算未交数量 - 监听订单输入变化
+document.addEventListener('input', function(e) {
+    if(e.target && (e.target.id === 'f-order-qty' || e.target.id === 'f-order-shipped')) {
+        const orderQty = Number(document.getElementById('f-order-qty').value) || 0;
+        const shippedQty = Number(document.getElementById('f-order-shipped').value) || 0;
+        document.getElementById('f-order-pending').value = Math.max(0, orderQty - shippedQty);
+    }
+});
+
+function editOrder(id) {
+    if(!requireAdmin('编辑订单')) return;
+    const o = DATA.orders.find(x => x.id === id);
+    if(!o) return;
+    editingOrderId = id;
+    document.getElementById('order-modal-title').textContent = '编辑订单';
+    document.getElementById('f-order-customer').value = o.customer || '';
+    document.getElementById('f-order-product').value = o.product || '';
+    document.getElementById('f-order-qty').value = o.orderQty || 0;
+    document.getElementById('f-order-shipped').value = o.shippedQty || 0;
+    document.getElementById('f-order-pending').value = Math.max(0, (Number(o.orderQty) || 0) - (Number(o.shippedQty) || 0));
+    document.getElementById('f-order-no').value = o.orderNo || '';
+    document.getElementById('f-order-item').value = o.itemNo || '';
+    document.getElementById('f-order-date').value = fmtDate(o.orderDate);
+    document.getElementById('f-order-duedate').value = fmtDate(o.dueDate);
+    refreshOrderDatalists();
+    document.getElementById('order-modal').classList.add('show');
+}
+
+function refreshOrderDatalists() {
+    const custList = document.getElementById('dl-order-customer');
+    const customers = [...new Set(DATA.orders.map(x => cleanStr(x.customer)).filter(Boolean))].sort();
+    custList.innerHTML = customers.map(c => `<option value="${escapeHtml(c)}">`).join('');
+    updateOrderProductDatalist();
+}
+
+function updateOrderProductDatalist() {
+    const prodList = document.getElementById('dl-order-product');
+    const customer = cleanStr(document.getElementById('f-order-customer').value);
+    let products = [];
+    if(customer) {
+        products = [...new Set(DATA.orders.filter(x => cleanStr(x.customer) === customer).map(x => cleanStr(x.product)).filter(Boolean))].sort();
+    }
+    if(products.length === 0) {
+        products = [...new Set(DATA.orders.map(x => cleanStr(x.product)).filter(Boolean))].sort();
+    }
+    prodList.innerHTML = products.map(p => `<option value="${escapeHtml(p)}">`).join('');
+}
+
+function saveOrder() {
+    if(!requireAdmin('保存订单')) return;
+    const customer = cleanStr(document.getElementById('f-order-customer').value);
+    const product = cleanStr(document.getElementById('f-order-product').value);
+    const orderQty = Number(document.getElementById('f-order-qty').value);
+    const shippedQty = Number(document.getElementById('f-order-shipped').value) || 0;
+    if(!customer || !product || isNaN(orderQty)) { showToast('请填写客户/产品/订单数量', 'error'); return; }
+
+    const data = {
+        customer: customer,
+        product: product,
+        orderQty: orderQty,
+        shippedQty: shippedQty,
+        pendingQty: Math.max(0, orderQty - shippedQty),
+        orderNo: cleanStr(document.getElementById('f-order-no').value),
+        itemNo: cleanStr(document.getElementById('f-order-item').value),
+        orderDate: document.getElementById('f-order-date').value,
+        dueDate: document.getElementById('f-order-duedate').value
+    };
+
+    let action = '新增订单';
+    if(editingOrderId) {
+        const idx = DATA.orders.findIndex(x => x.id === editingOrderId);
+        if(idx >= 0) DATA.orders[idx] = { ...DATA.orders[idx], ...data };
+        action = '编辑订单';
+        showToast('订单已更新', 'success');
+    } else {
+        data.id = genId();
+        DATA.orders.push(data);
+        showToast('订单已添加', 'success');
+    }
+    logAction(action, 'order', customer + ' | ' + product + ' | 数量' + orderQty, true);
+    closeModal('order-modal');
+    saveData();
+    renderOrders();
+    renderShipments();
+}
+
+function deleteOrder(id) {
+    if(!requireAdmin('删除订单')) return;
+    if(!confirm('确定删除此订单吗？')) return;
+    const o = DATA.orders.find(x => x.id === id);
+    const detail = o ? (o.customer + ' | ' + o.product + ' | 数量' + o.orderQty) : '';
+    DATA.orders = DATA.orders.filter(o => o.id !== id);
+    saveData();
+    renderOrders();
+    logAction('删除订单', 'order', detail, true);
+    showToast('已删除', 'success');
+}
+
+let orderShipId = null;
+function openOrderShipModal(id) {
+    if(!requireAdmin('订单出货')) return;
+    const o = DATA.orders.find(x => x.id === id);
+    if(!o) return;
+    orderShipId = id;
+    const orderQty = Number(o.orderQty) || 0;
+    const shippedQty = Number(o.shippedQty) || 0;
+    const pending = Math.max(0, orderQty - shippedQty);
+    document.getElementById('fos-customer').value = o.customer || '';
+    document.getElementById('fos-product').value = o.product || '';
+    document.getElementById('fos-orderno').value = o.orderNo || '';
+    document.getElementById('fos-orderqty').value = orderQty.toLocaleString();
+    document.getElementById('fos-shipped').value = shippedQty.toLocaleString();
+    document.getElementById('fos-pending').value = pending.toLocaleString();
+    document.getElementById('fos-qty').value = '';
+    document.getElementById('fos-qty').max = pending;
+    document.getElementById('fos-date').value = todayStr();
+    document.getElementById('fos-sku').value = o.itemNo || '';
+    fosUpdatePreview();
+    document.getElementById('order-ship-modal').classList.add('show');
+}
+
+function fosUpdatePreview() {
+    if(!orderShipId) return;
+    const o = DATA.orders.find(x => x.id === orderShipId);
+    if(!o) return;
+    const orderQty = Number(o.orderQty) || 0;
+    const shippedQty = Number(o.shippedQty) || 0;
+    const pending = Math.max(0, orderQty - shippedQty);
+    const qty = Number(document.getElementById('fos-qty').value) || 0;
+    const afterPending = Math.max(0, pending - qty);
+    const stockQty = DATA.stock.filter(s => (s.customer || '').toString().trim() === (o.customer || '').toString().trim() && (s.product || '').toString().trim() === (o.product || '').toString().trim()).reduce((sum, s) => sum + (Number(s.stockQty) || 0), 0);
+    const afterStock = Math.max(0, stockQty - qty);
+    document.getElementById('fos-after-pending').textContent = afterPending.toLocaleString();
+    document.getElementById('fos-after-stock').textContent = afterStock.toLocaleString();
+}
+
+function confirmOrderShip() {
+    if(!requireAdmin('订单出货')) return;
+    if(!orderShipId) return;
+    const o = DATA.orders.find(x => x.id === orderShipId);
+    if(!o) return;
+    const qty = Number(document.getElementById('fos-qty').value);
+    if(!qty || qty <= 0) { showToast('请填写有效的出货数量', 'error'); return; }
+    const orderQty = Number(o.orderQty) || 0;
+    const shippedQty = Number(o.shippedQty) || 0;
+    const pending = Math.max(0, orderQty - shippedQty);
+    if(qty > pending) { showToast('出货数量不能大于未交数量 ' + pending.toLocaleString(), 'error'); return; }
+    o.shippedQty = shippedQty + qty;
+    o.pendingQty = Math.max(0, orderQty - o.shippedQty);
+    DATA.shipments.push({
+        id: genId(),
+        customer: cleanStr(o.customer),
+        product: cleanStr(o.product),
+        shipQty: qty,
+        orderNo: cleanStr(o.orderNo || ''),
+        sku: cleanStr(document.getElementById('fos-sku').value),
+        shipDate: document.getElementById('fos-date').value || todayStr()
+    });
+    const customerKey = cleanStr(o.customer);
+    const productKey = cleanStr(o.product);
+    let stockMatched = false;
+    const matched = DATA.stock.filter(s => cleanStr(s.customer) === customerKey && cleanStr(s.product) === productKey);
+    if(matched.length > 0) {
+        let remain = qty;
+        for(let i = 0; i < DATA.stock.length && remain > 0; i++) {
+            const s = DATA.stock[i];
+            if(cleanStr(s.customer) === customerKey && cleanStr(s.product) === productKey) {
+                const sq = Number(s.stockQty) || 0;
+                if(sq > 0) {
+                    const deduct = Math.min(sq, remain);
+                    s.stockQty = sq - deduct;
+                    remain -= deduct;
+                    stockMatched = true;
+                }
+            }
+        }
+    }
+    closeModal('order-ship-modal');
+    orderShipId = null;
+    saveData();
+    renderOrders();
+    renderShipments();
+    renderStock();
+    logAction('订单出货', 'ship', cleanStr(o.customer) + ' | ' + cleanStr(o.product) + ' | 出货' + qty, true);
+    let msg = '✓ 订单已更新；✓ 出货明细已生成';
+    if(stockMatched) msg += '；✓ 库存已扣减';
+    else msg += '；⚠ 未找到对应库存记录，请手动调整';
+    showToast(msg, 'success');
+}
+
+/* ====================================================
+   出货数据渲染
+   ==================================================== */
+function renderShipments() {
+    const keyword = (document.getElementById('ship-search').value || '').toLowerCase();
+    const custEl = document.getElementById('ship-customer-filter');
+    const selectedCust = custEl ? cleanStr(custEl.value) : '';
+    const allCustomers = [...new Set(DATA.shipments.map(x => cleanStr(x.customer)).filter(Boolean))].sort();
+    if(custEl) {
+        const curVal = selectedCust;
+        custEl.innerHTML = '<option value="">全部客户</option>' + allCustomers.map(c => `<option value="${escapeHtml(c)}" ${c === curVal ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('');
+    }
+    const tbody = document.getElementById('ship-tbody');
+    let rows = DATA.shipments.slice();
+    if(selectedCust) {
+        rows = rows.filter(s => cleanStr(s.customer) === selectedCust);
+    }
+    if(keyword) {
+        rows = rows.filter(s =>
+            cleanStr(s.customer).toLowerCase().includes(keyword) ||
+            cleanStr(s.product).toLowerCase().includes(keyword) ||
+            cleanStr(s.orderNo).toLowerCase().includes(keyword)
+        );
+    }
+
+    // 日期筛选
+    const shipStartEl = document.getElementById('ship-date-start');
+    const shipEndEl = document.getElementById('ship-date-end');
+    const shipDateStart = shipStartEl ? shipStartEl.value : '';
+    const shipDateEnd = shipEndEl ? shipEndEl.value : '';
+    if(shipDateStart || shipDateEnd) {
+        rows = rows.filter(s => {
+            const sd = normalizeDate(s.shipDate);
+            if(!sd) return false;
+            if(shipDateStart && sd < shipDateStart) return false;
+            if(shipDateEnd && sd > shipDateEnd) return false;
+            return true;
+        });
+    }
+
+    // 排序
+    const sortS = SORT_STATE.ship;
+    if(sortS.key) {
+        rows.sort((a, b) => {
+            let va, vb;
+            if(sortS.key === 'shipQty') {
+                va = Number(a.shipQty) || 0;
+                vb = Number(b.shipQty) || 0;
+            } else {
+                va = (a[sortS.key] || '').toString();
+                vb = (b[sortS.key] || '').toString();
+            }
+            if(typeof va === 'number') return sortS.dir === 'asc' ? va - vb : vb - va;
+            return sortS.dir === 'asc' ? va.localeCompare(vb, 'zh') : vb.localeCompare(va, 'zh');
+        });
+    }
+
+    // 筛选汇总
+    const totalCount = DATA.shipments.length;
+    const totalShipQty = DATA.shipments.reduce((s,x) => s + (Number(x.shipQty) || 0), 0);
+    const filteredCount = rows.length;
+    const filteredShipQty = rows.reduce((s,x) => s + (Number(x.shipQty) || 0), 0);
+    const customers = new Set(rows.map(r => r.customer)).size;
+    const products = new Set(rows.map(r => r.product)).size;
+
+    document.getElementById('fs-ship-count').textContent = filteredCount.toLocaleString();
+    document.getElementById('fs-ship-qty').textContent = filteredShipQty.toLocaleString();
+    document.getElementById('fs-ship-customer').textContent = customers;
+    document.getElementById('fs-ship-product').textContent = products;
+    document.getElementById('fs-ship-all').textContent = '共 ' + totalCount.toLocaleString() + ' 条出货 | 总量 ' + totalShipQty.toLocaleString();
+
+    // 顶部统计
+    document.getElementById('stat-ship-count').textContent = totalCount.toLocaleString();
+    document.getElementById('stat-ship-amount').textContent = '出货数量 ' + totalShipQty.toLocaleString();
+
+    if(rows.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">📤</div>暂无出货数据</div></td></tr>';
+        return;
+    }
+    tbody.innerHTML = rows.map(s => `<tr>
+        <td style="text-align:left; padding-left:14px;">${escapeHtml(s.customer)}</td>
+        <td style="text-align:center; font-weight:600;">${escapeHtml(s.product)}</td>
+        <td class="qty-num" style="color:var(--success);">${(Number(s.shipQty) || 0).toLocaleString()}</td>
+        <td>${escapeHtml(s.orderNo)}</td>
+        <td>${escapeHtml(s.sku)}</td>
+        <td>${fmtDate(s.shipDate)}</td>
+        <td class="action-cell admin-only">
+            <button class="btn btn-sm btn-danger" onclick="deleteShipment('${s.id}')">删除</button>
+        </td>
+    </tr>`).join('');
+
+    setTimeout(() => updateSortIndicator('ship'), 0);
+}
+
+function openShipModal() {
+    if(!requireAdmin('新增出货')) return;
+    document.getElementById('f-ship-customer').value = '';
+    document.getElementById('f-ship-product').value = '';
+    document.getElementById('f-ship-qty').value = '';
+    document.getElementById('f-ship-no').value = '';
+    document.getElementById('f-ship-sku').value = '';
+    document.getElementById('f-ship-date').value = todayStr();
+    refreshShipDatalists();
+    document.getElementById('ship-modal').classList.add('show');
+}
+
+function refreshShipDatalists() {
+    const custList = document.getElementById('dl-ship-customer');
+    const customers = [...new Set(DATA.shipments.map(x => cleanStr(x.customer)).filter(Boolean))].sort();
+    custList.innerHTML = customers.map(c => `<option value="${escapeHtml(c)}">`).join('');
+    updateShipProductDatalist();
+}
+
+function updateShipProductDatalist() {
+    const prodList = document.getElementById('dl-ship-product');
+    const customer = cleanStr(document.getElementById('f-ship-customer').value);
+    let products = [];
+    if(customer) {
+        products = [...new Set(DATA.shipments.filter(x => cleanStr(x.customer) === customer).map(x => cleanStr(x.product)).filter(Boolean))].sort();
+    }
+    if(products.length === 0) {
+        products = [...new Set(DATA.shipments.map(x => cleanStr(x.product)).filter(Boolean))].sort();
+    }
+    prodList.innerHTML = products.map(p => `<option value="${escapeHtml(p)}">`).join('');
+}
+
+function saveShipment() {
+    if(!requireAdmin('保存出货')) return;
+    const customer = cleanStr(document.getElementById('f-ship-customer').value);
+    const product = cleanStr(document.getElementById('f-ship-product').value);
+    const shipQty = Number(document.getElementById('f-ship-qty').value);
+    if(!customer || !product || isNaN(shipQty) || shipQty <= 0) { showToast('请填写客户/产品/出货数量', 'error'); return; }
+
+    DATA.shipments.push({
+        id: genId(),
+        customer: customer,
+        product: product,
+        shipQty: shipQty,
+        orderNo: cleanStr(document.getElementById('f-ship-no').value),
+        sku: cleanStr(document.getElementById('f-ship-sku').value),
+        shipDate: document.getElementById('f-ship-date').value
+    });
+    closeModal('ship-modal');
+    saveData();
+    renderShipments();
+    logAction('新增出货', 'ship', customer + ' | ' + product + ' | 数量' + shipQty, true);
+    showToast('出货记录已添加', 'success');
+}
+
+function deleteShipment(id) {
+    if(!requireAdmin('删除出货')) return;
+    if(!confirm('确定删除此出货记录吗？')) return;
+    const s = DATA.shipments.find(x => x.id === id);
+    const detail = s ? (cleanStr(s.customer) + ' | ' + cleanStr(s.product) + ' | 数量' + s.shipQty) : '';
+    DATA.shipments = DATA.shipments.filter(s => s.id !== id);
+    saveData();
+    renderShipments();
+    logAction('删除出货', 'ship', detail, true);
+    showToast('已删除', 'success');
+}
+
+/* ====================================================
+   库存数据渲染
+   ==================================================== */
+function renderStock() {
+    const keyword = (document.getElementById('stock-search').value || '').toLowerCase();
+    const statusEl = document.querySelector('input[name="stock-status"]:checked');
+    const statusFilter = statusEl ? statusEl.value : 'all';
+    const custEl = document.getElementById('stock-customer-filter');
+    const selectedCust = custEl ? cleanStr(custEl.value) : '';
+    const allCustomers = [...new Set(DATA.stock.map(x => cleanStr(x.customer)).filter(Boolean))].sort();
+    if(custEl) {
+        const curVal = selectedCust;
+        custEl.innerHTML = '<option value="">全部客户</option>' + allCustomers.map(c => `<option value="${escapeHtml(c)}" ${c === curVal ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('');
+    }
+    const tbody = document.getElementById('stock-tbody');
+    const productPendingMap = {};
+    DATA.orders.forEach(o => {
+        const product = cleanStr(o.product);
+        if(!product) return;
+        const pq = Math.max(0, (Number(o.orderQty) || 0) - (Number(o.shippedQty) || 0));
+        productPendingMap[product] = (productPendingMap[product] || 0) + pq;
+    });
+    let rows = DATA.stock.slice();
+
+    // 0. 客户筛选
+    if(selectedCust) {
+        rows = rows.filter(s => cleanStr(s.customer) === selectedCust);
+    }
+
+    // 1. 关键词筛选
+    if(keyword) {
+        rows = rows.filter(s =>
+            cleanStr(s.customer).toLowerCase().includes(keyword) ||
+            cleanStr(s.product).toLowerCase().includes(keyword) ||
+            cleanStr(s.location).toLowerCase().includes(keyword)
+        );
+    }
+
+    // 2. 状态筛选
+    if(statusFilter && statusFilter !== 'all') {
+        rows = rows.filter(s => {
+            const q = Number(s.stockQty) || 0;
+            const pending = productPendingMap[cleanStr(s.product)] || 0;
+            if(statusFilter === 'ok') return q > 100 && pending > 0;
+            if(statusFilter === 'low') return q > 0 && q <= 100 && pending > 0;
+            if(statusFilter === 'empty') return q <= 0 && pending > 0;
+            if(statusFilter === 'noorder') return pending === 0;
+            return true;
+        });
+    }
+
+    // 3. 排序
+    const sortK = SORT_STATE.stock;
+    if(sortK.key) {
+        rows.sort((a, b) => {
+            let va, vb;
+            if(sortK.key === 'pendingQty') {
+                va = productPendingMap[(a.product || '').toString().trim()] || 0;
+                vb = productPendingMap[(b.product || '').toString().trim()] || 0;
+            } else if(sortK.key === 'stockQty') {
+                va = Number(a.stockQty) || 0;
+                vb = Number(b.stockQty) || 0;
+            } else {
+                va = (a[sortK.key] || '').toString();
+                vb = (b[sortK.key] || '').toString();
+            }
+            if(typeof va === 'number') return sortK.dir === 'asc' ? va - vb : vb - va;
+            return sortK.dir === 'asc' ? va.localeCompare(vb, 'zh') : vb.localeCompare(va, 'zh');
+        });
+    }
+
+    // 筛选汇总
+    const totalCount = DATA.stock.length;
+    const totalStockQty = DATA.stock.reduce((s,x) => s + (Number(x.stockQty) || 0), 0);
+    const totalPending = DATA.stock.reduce((s,x) => s + (productPendingMap[(x.product || '').toString().trim()] || 0), 0);
+    const okCount = DATA.stock.filter(x => { const q = Number(x.stockQty) || 0; const p = productPendingMap[(x.product || '').toString().trim()] || 0; return q > 100 && p > 0; }).length;
+    const lowCount = DATA.stock.filter(x => { const q = Number(x.stockQty) || 0; const p = productPendingMap[(x.product || '').toString().trim()] || 0; return q > 0 && q <= 100 && p > 0; }).length;
+    const emptyCount = DATA.stock.filter(x => { const q = Number(x.stockQty) || 0; const p = productPendingMap[(x.product || '').toString().trim()] || 0; return q <= 0 && p > 0; }).length;
+
+    const filteredCount = rows.length;
+    const filteredStockQty = rows.reduce((s,x) => s + (Number(x.stockQty) || 0), 0);
+    const filteredPending = rows.reduce((s,x) => s + (productPendingMap[(x.product || '').toString().trim()] || 0), 0);
+    const filteredOk = rows.filter(x => { const q = Number(x.stockQty) || 0; const p = productPendingMap[(x.product || '').toString().trim()] || 0; return q > 100 && p > 0; }).length;
+    const filteredLow = rows.filter(x => { const q = Number(x.stockQty) || 0; const p = productPendingMap[(x.product || '').toString().trim()] || 0; return q > 0 && q <= 100 && p > 0; }).length;
+    const filteredEmpty = rows.filter(x => { const q = Number(x.stockQty) || 0; const p = productPendingMap[(x.product || '').toString().trim()] || 0; return q <= 0 && p > 0; }).length;
+
+    document.getElementById('fs-stock-count').textContent = filteredCount.toLocaleString();
+    document.getElementById('fs-stock-qty').textContent = filteredStockQty.toLocaleString();
+    document.getElementById('fs-stock-pending').textContent = filteredPending.toLocaleString();
+    document.getElementById('fs-stock-ok').textContent = filteredOk;
+    document.getElementById('fs-stock-empty').textContent = filteredEmpty;
+    const noorderCount = DATA.stock.filter(x => { const p = productPendingMap[(x.product || '').toString().trim()] || 0; return p === 0; }).length;
+    document.getElementById('fs-stock-all').textContent = '共 ' + totalCount.toLocaleString() + ' 条（正常 ' + okCount + ' · 低库存 ' + lowCount + ' · 无订单 ' + noorderCount + ' · 缺货 ' + emptyCount + '） | 库存 ' + totalStockQty.toLocaleString() + ' | 未交 ' + totalPending.toLocaleString();
+
+    // 顶部统计（库存预警 = 缺货 + 低库存）
+    document.getElementById('stat-low-stock').textContent = (emptyCount + lowCount).toLocaleString();
+    document.getElementById('stat-total-stock').textContent = '总库存量 ' + totalStockQty.toLocaleString();
+
+    if(rows.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">📦</div>暂无库存数据</div></td></tr>';
+        return;
+    }
+    tbody.innerHTML = rows.map(s => {
+        const q = Number(s.stockQty) || 0;
+        const p = productPendingMap[(s.product || '').toString().trim()] || 0;
+        let badge = '', badgeCls = '';
+        if(p === 0) { badge = '无订单'; badgeCls = 'badge-done'; }
+        else if(q <= 0) { badge = '缺货'; badgeCls = 'badge-stock-low'; }
+        else if(q <= 100) { badge = '低库存'; badgeCls = 'badge-stock-warn'; }
+        else { badge = '正常'; badgeCls = 'badge-stock-ok'; }
+        return `<tr>
+            <td style="text-align:left; padding-left:14px;">${escapeHtml(s.customer)}</td>
+            <td style="text-align:center; font-weight:600;">${escapeHtml(s.product)}</td>
+            <td class="qty-num ${q <= 0 ? 'qty-danger' : (q <= 100 ? 'qty-warn' : '')}">${q.toLocaleString()}</td>
+            <td class="qty-num" style="color:#f39c12;">${p.toLocaleString()}</td>
+            <td>${fmtDate(s.stockDate)}</td>
+            <td>${escapeHtml(s.location)}</td>
+            <td><span class="badge ${badgeCls}">${badge}</span></td>
+            <td class="action-cell admin-only">
+                <button class="btn btn-sm btn-primary" onclick="editStock('${s.id}')">编辑</button>
+                <button class="btn btn-sm btn-danger" onclick="deleteStock('${s.id}')">删除</button>
+            </td>
+        </tr>`;
+    }).join('');
+
+    setTimeout(() => updateSortIndicator('stock'), 0);
+}
+
+function openStockInModal() {
+    if(!requireAdmin('新增库存')) return;
+    editingStockId = null;
+    document.getElementById('stock-modal-title').textContent = '新增库存';
+    document.getElementById('f-stock-customer').value = '';
+    document.getElementById('f-stock-product').value = '';
+    document.getElementById('f-stock-qty').value = '';
+    document.getElementById('f-stock-pending').value = '';
+    document.getElementById('f-stock-date').value = todayStr();
+    document.getElementById('f-stock-location').value = '';
+    refreshStockDatalists();
+    document.getElementById('stock-modal').classList.add('show');
+}
+
+function editStock(id) {
+    if(!requireAdmin('编辑库存')) return;
+    const s = DATA.stock.find(x => x.id === id);
+    if(!s) return;
+    editingStockId = id;
+    document.getElementById('stock-modal-title').textContent = '编辑库存';
+    document.getElementById('f-stock-customer').value = s.customer || '';
+    document.getElementById('f-stock-product').value = s.product || '';
+    document.getElementById('f-stock-qty').value = s.stockQty || 0;
+    document.getElementById('f-stock-pending').value = s.pendingQty || 0;
+    document.getElementById('f-stock-date').value = fmtDate(s.stockDate);
+    document.getElementById('f-stock-location').value = s.location || '';
+    refreshStockDatalists();
+    document.getElementById('stock-modal').classList.add('show');
+}
+
+function refreshStockDatalists() {
+    const custList = document.getElementById('dl-stock-customer');
+    const customers = [...new Set(DATA.stock.map(x => cleanStr(x.customer)).filter(Boolean))].sort();
+    custList.innerHTML = customers.map(c => `<option value="${escapeHtml(c)}">`).join('');
+    updateStockProductDatalist();
+}
+
+function updateStockProductDatalist() {
+    const prodList = document.getElementById('dl-stock-product');
+    const customer = cleanStr(document.getElementById('f-stock-customer').value);
+    let products = [];
+    if(customer) {
+        products = [...new Set(DATA.stock.filter(x => cleanStr(x.customer) === customer).map(x => cleanStr(x.product)).filter(Boolean))].sort();
+    }
+    if(products.length === 0) {
+        products = [...new Set(DATA.stock.map(x => cleanStr(x.product)).filter(Boolean))].sort();
+    }
+    prodList.innerHTML = products.map(p => `<option value="${escapeHtml(p)}">`).join('');
+}
+
+function saveStock() {
+    if(!requireAdmin('保存库存')) return;
+    const customer = cleanStr(document.getElementById('f-stock-customer').value);
+    const product = cleanStr(document.getElementById('f-stock-product').value);
+    const stockQty = Number(document.getElementById('f-stock-qty').value);
+    if(!customer || !product || isNaN(stockQty)) { showToast('请填写客户/产品/库存数量', 'error'); return; }
+
+    const data = {
+        customer: customer,
+        product: product,
+        stockQty: stockQty,
+        pendingQty: Number(document.getElementById('f-stock-pending').value) || 0,
+        stockDate: document.getElementById('f-stock-date').value,
+        location: cleanStr(document.getElementById('f-stock-location').value)
+    };
+
+    let action = '新增库存';
+    if(editingStockId) {
+        const idx = DATA.stock.findIndex(x => x.id === editingStockId);
+        if(idx >= 0) DATA.stock[idx] = { ...DATA.stock[idx], ...data };
+        action = '编辑库存';
+        showToast('库存已更新', 'success');
+    } else {
+        data.id = genId();
+        DATA.stock.push(data);
+        showToast('库存已添加', 'success');
+    }
+    logAction(action, 'stock', customer + ' | ' + product + ' | 数量' + stockQty, true);
+    closeModal('stock-modal');
+    saveData();
+    renderStock();
+}
+
+function deleteStock(id) {
+    if(!requireAdmin('删除库存')) return;
+    if(!confirm('确定删除此库存吗？')) return;
+    const s = DATA.stock.find(x => x.id === id);
+    const detail = s ? (cleanStr(s.customer) + ' | ' + cleanStr(s.product) + ' | 数量' + s.stockQty) : '';
+    DATA.stock = DATA.stock.filter(s => s.id !== id);
+    saveData();
+    renderStock();
+    logAction('删除库存', 'stock', detail, true);
+    showToast('已删除', 'success');
+}
+
+/* ====================================================
+   用户管理
+   ==================================================== */
+function renderUsers() {
+    const list = document.getElementById('user-list');
+    if(!USERS.length) {
+        list.innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div>暂无用户</div>';
+        return;
+    }
+    list.innerHTML = USERS.map(u => `<div class="user-row">
+        <div class="uname">${escapeHtml(u.username)}</div>
+        <div style="color:#666;">${u.password ? u.password.replace(/./g, '•') : ''}</div>
+        <div class="urole"><span class="badge ${u.role === 'admin' ? 'badge-over' : 'badge-part'}">${u.role === 'admin' ? '管理员' : '普通用户'}</span></div>
+        <div class="user-actions admin-only">
+            <button class="btn btn-sm btn-primary" onclick="editUser('${u.username}')">编辑</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteUser('${u.username}')">删除</button>
+        </div>
+    </div>`).join('');
+}
+
+function openUserModal() {
+    if(!requireAdmin('新增用户')) return;
+    editingUsername = null;
+    document.getElementById('user-modal-title').textContent = '新增用户';
+    document.getElementById('f-user-name').value = '';
+    document.getElementById('f-user-password').value = '';
+    document.getElementById('f-user-role').value = 'user';
+    document.getElementById('user-modal').classList.add('show');
+}
+
+function editUser(username) {
+    if(!requireAdmin('编辑用户')) return;
+    const u = USERS.find(x => x.username === username);
+    if(!u) return;
+    editingUsername = username;
+    document.getElementById('user-modal-title').textContent = '编辑用户';
+    document.getElementById('f-user-name').value = u.username;
+    document.getElementById('f-user-password').value = u.password;
+    document.getElementById('f-user-role').value = u.role;
+    document.getElementById('user-modal').classList.add('show');
+}
+
+function saveUser() {
+    if(!requireAdmin('保存用户')) return;
+    const username = document.getElementById('f-user-name').value.trim();
+    const password = document.getElementById('f-user-password').value;
+    const role = document.getElementById('f-user-role').value;
+    if(!username || !password) { showToast('请填写用户名和密码', 'error'); return; }
+
+    let action = '新增用户';
+    if(editingUsername) {
+        const idx = USERS.findIndex(x => x.username === editingUsername);
+        if(idx >= 0) USERS[idx] = { username: username, password: password, role: role };
+        action = '编辑用户';
+        showToast('用户已更新', 'success');
+    } else {
+        if(USERS.find(x => x.username === username)) { showToast('用户名已存在', 'error'); return; }
+        USERS.push({ username: username, password: password, role: role });
+        showToast('用户已添加', 'success');
+    }
+    logAction(action, 'user', username + ' | 角色:' + (role === 'admin' ? '管理员' : '普通用户'), true);
+    saveUsers();
+    renderUsers();
+    closeModal('user-modal');
+}
+
+function deleteUser(username) {
+    if(!requireAdmin('删除用户')) return;
+    if(username === CURRENT_USER.username) { showToast('不能删除当前登录用户', 'error'); return; }
+    if(!confirm('确定删除用户 "' + username + '" 吗？')) return;
+    USERS = USERS.filter(u => u.username !== username);
+    saveUsers();
+    renderUsers();
+    logAction('删除用户', 'user', username, true);
+    showToast('已删除', 'success');
+}
+
+/* ====================================================
+   弹窗关闭
+   ==================================================== */
+function closeModal(id) {
+    const m = document.getElementById(id);
+    if(m) m.classList.remove('show');
+}
+
+document.addEventListener('click', function(e) {
+    if(e.target && e.target.classList && e.target.classList.contains('modal-mask')) closeModal(e.target.id);
+});
+
+/* ====================================================
+   Excel 导入导出
+   ==================================================== */
+function formatExcelDate(v) {
+    if(v == null || v === '') return '';
+    if(v instanceof Date) return v.toISOString().slice(0, 10);
+    if(typeof v === 'number') {
+        try {
+            const days = Math.floor(v);
+            const epoch = new Date(1899, 11, 30);
+            const d = new Date(epoch.getTime() + days * 86400000);
+            return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+        } catch(e) { return String(v); }
+    }
+    return String(v);
+}
+
+function handleFileUpload(event) {
+    if(!requireAdmin('Excel导入')) { event.target.value = ''; return; }
+    const file = event.target.files[0];
+    if(!file) return;
+    if(!confirm('导入后将覆盖现有数据，确定继续？\n\n（若要保留当前数据请先备份）')) {
+        event.target.value = '';
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+
+            // 工作表兼容匹配：精确 → 忽略空格 → 包含关键词
+            function findSheet(candidates) {
+                for(const want of candidates) {
+                    if(workbook.SheetNames.includes(want)) return want;
+                    for(const sn of workbook.SheetNames) {
+                        if(sn.replace(/\s/g, '') === want.replace(/\s/g, '')) return sn;
+                    }
+                    for(const sn of workbook.SheetNames) {
+                        if(sn.includes(want)) return sn;
+                    }
+                }
+                return null;
+            }
+
+            let newOrders = [], newShipments = [], newStock = [];
+            let sheetNames = { order: '', ship: '', stock: '' };
+
+            // ---------- 订单 ----------
+            const orderSheet = findSheet(['订单数据', '订单', '订单明细', 'Order']);
+            if(orderSheet) {
+                sheetNames.order = orderSheet;
+                const json = XLSX.utils.sheet_to_json(workbook.Sheets[orderSheet], { defval: '', raw: false });
+                newOrders = json.map(row => ({
+                    id: genId(),
+                    customer: cleanStr(String(row['客户'] || row['客户名称'] || '')),
+                    product: cleanStr(String(row['产品名称'] || row['产品'] || row['产品型号'] || '')),
+                    orderQty: Number(row['订单数量'] || row['订单数'] || row['数量'] || 0) || 0,
+                    shippedQty: Number(row['已出货'] || row['已出货数量'] || row['出货'] || 0) || 0,
+                    pendingQty: 0,
+                    orderNo: cleanStr(String(row['订单号'] || row['订单编号'] || row['PO号'] || '')),
+                    itemNo: cleanStr(String(row['项号'] || row['行号'] || '')),
+                    orderDate: formatExcelDate(row['下单日期'] || row['订单日期'] || row['日期'] || ''),
+                    dueDate: formatExcelDate(row['交期'] || row['交货期'] || row['交货日期'] || '')
+                })).filter(o => o.customer && o.product);
+                newOrders.forEach(o => o.pendingQty = Math.max(0, o.orderQty - o.shippedQty));
+            }
+
+            // ---------- 出货 ----------
+            const shipSheet = findSheet(['出货数据', '出货', '出货明细', '出货单', '发货', '发货数据']);
+            if(shipSheet) {
+                sheetNames.ship = shipSheet;
+                const json = XLSX.utils.sheet_to_json(workbook.Sheets[shipSheet], { defval: '', raw: false });
+                newShipments = json.map(row => {
+                    const sq = Number(row['出货数量'] || row['出货数'] || row['数量'] || row['发货数量'] || 0) || 0;
+                    return {
+                        id: genId(),
+                        customer: cleanStr(String(row['客户'] || row['客户名称'] || '')),
+                        product: cleanStr(String(row['产品名称'] || row['产品'] || '')),
+                        shipQty: sq,
+                        orderNo: cleanStr(String(row['订单号'] || row['订单单号'] || row['订单编号'] || row['PO号'] || '')),
+                        sku: cleanStr(String(row['产品料号'] || row['料号'] || row['SKU'] || row['项号'] || row['行号'] || '')),
+                        shipDate: formatExcelDate(row['出货日期'] || row['日期'] || '')
+                    };
+                }).filter(s => s.customer && s.product);
+            }
+
+            // ---------- 库存 ----------
+            const stockSheet = findSheet(['库存数据', '库存', '库存明细', '仓存']);
+            if(stockSheet) {
+                sheetNames.stock = stockSheet;
+                const json = XLSX.utils.sheet_to_json(workbook.Sheets[stockSheet], { defval: '', raw: false });
+                newStock = json.map(row => ({
+                    id: genId(),
+                    customer: cleanStr(String(row['客户'] || row['客户名称'] || '')),
+                    product: cleanStr(String(row['产品名称'] || row['产品'] || '')),
+                    stockQty: Number(row['库存数量'] || row['库存数'] || row['数量'] || 0) || 0,
+                    pendingQty: Number(row['未交数量'] || row['未交数'] || row['未交'] || row['欠数'] || 0) || 0,
+                    stockDate: formatExcelDate(row['入库时间'] || row['入库日期'] || row['日期'] || ''),
+                    location: cleanStr(String(row['存放区域'] || row['位置'] || row['库位'] || ''))
+                })).filter(s => s.customer && s.product);
+            }
+
+            DATA.orders = newOrders;
+            DATA.shipments = newShipments;
+            DATA.stock = newStock;
+            saveData();
+            renderAll();
+
+            const shipTotal = newShipments.reduce((s,x)=>s+(x.shipQty||0),0);
+            const stockTotal = newStock.reduce((s,x)=>s+(x.stockQty||0),0);
+            let sn = '';
+            if(sheetNames.order) sn += '<div style="font-size:12px;color:#666;">匹配工作表：订单 "' + sheetNames.order + '"</div>';
+            if(sheetNames.ship) sn += '<div style="font-size:12px;color:#666;">匹配工作表：出货 "' + sheetNames.ship + '"</div>';
+            if(sheetNames.stock) sn += '<div style="font-size:12px;color:#666;">匹配工作表：库存 "' + sheetNames.stock + '"</div>';
+
+            document.getElementById('import-preview').innerHTML =
+                '<div style="background:#e8f5e9;padding:16px;border-radius:8px;border:1px solid #81c784;line-height:1.9;">' +
+                '✅ 导入成功！<br>' +
+                '订单数据: <b>' + newOrders.length + '</b> 条<br>' +
+                '出货数据: <b>' + newShipments.length + '</b> 条（出货合计 <b>' + shipTotal.toLocaleString() + '</b>）<br>' +
+                '库存数据: <b>' + newStock.length + '</b> 条（库存合计 <b>' + stockTotal.toLocaleString() + '</b>）' +
+                sn +
+                '</div>';
+            logAction('Excel导入', 'data', '文件: ' + file.name + ' | 订单' + newOrders.length + ' 出货' + newShipments.length + ' 库存' + newStock.length, true);
+            showToast('导入成功：订单 ' + newOrders.length + ' / 出货 ' + newShipments.length + ' / 库存 ' + newStock.length, 'success');
+            event.target.value = '';
+        } catch(err) {
+            console.error(err);
+            document.getElementById('import-preview').innerHTML =
+                '<div style="background:#ffebee;padding:16px;border-radius:8px;color:#c62828;">❌ 导入失败：' + escapeHtml(err.message) + '</div>';
+            logAction('Excel导入', 'data', '文件: ' + (file ? file.name : '未知') + ' | 错误: ' + err.message, false);
+            showToast('导入失败', 'error');
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+function exportExcel(type) {
+    const wb = XLSX.utils.book_new();
+
+    function buildSheet(data, header, name) {
+        const rows = data.map(d => {
+            const r = {};
+            header.forEach(h => { r[h[0]] = h[1](d); });
+            return r;
+        });
+        const ws = XLSX.utils.json_to_sheet(rows);
+        XLSX.utils.book_append_sheet(wb, ws, name);
+    }
+
+    if(type === 'order' || type === 'all') {
+        buildSheet(DATA.orders, [
+            ['客户', d => d.customer], ['产品名称', d => d.product],
+            ['订单数量', d => d.orderQty], ['已出货', d => d.shippedQty],
+            ['未交数量', d => Math.max(0, (d.orderQty||0) - (d.shippedQty||0))],
+            ['订单号', d => d.orderNo], ['项号', d => d.itemNo],
+            ['下单日期', d => fmtDate(d.orderDate)], ['交期', d => fmtDate(d.dueDate)]
+        ], '订单数据');
+    }
+    if(type === 'ship' || type === 'all') {
+        buildSheet(DATA.shipments, [
+            ['客户', d => d.customer], ['产品名称', d => d.product],
+            ['出货数量', d => d.shipQty], ['订单号', d => d.orderNo],
+            ['项号', d => d.sku], ['出货日期', d => fmtDate(d.shipDate)]
+        ], '出货数据');
+    }
+    if(type === 'stock' || type === 'all') {
+        buildSheet(DATA.stock, [
+            ['客户', d => d.customer], ['产品名称', d => d.product],
+            ['库存数量', d => d.stockQty], ['未交数量', d => d.pendingQty],
+            ['入库时间', d => fmtDate(d.stockDate)], ['存放区域', d => d.location]
+        ], '库存数据');
+    }
+
+    const filename = '订单出货库存_' + todayStr() + '_' + new Date().toTimeString().slice(0,5).replace(':','') + '.xlsx';
+    XLSX.writeFile(wb, filename);
+    const typeMap = { order: '订单', ship: '出货', stock: '库存', all: '全部' };
+    logAction('Excel导出', 'data', '类型: ' + (typeMap[type] || type), true);
+    showToast('导出成功: ' + filename, 'success');
+}
+
+function downloadTemplate() {
+    const wb = XLSX.utils.book_new();
+    const orderWS = XLSX.utils.json_to_sheet([
+        { '客户': '示例客户', '产品名称': '产品A', '订单数量': 1000, '已出货': 300, '未交数量': 700, '订单号': 'ORD001', '项号': '1', '下单日期': '2026-01-15', '交期': '2026-03-01' }
+    ]);
+    XLSX.utils.book_append_sheet(wb, orderWS, '订单数据');
+    const shipWS = XLSX.utils.json_to_sheet([
+        { '客户': '示例客户', '产品名称': '产品A', '出货数量': 300, '订单号': 'ORD001', '产品料号': 'SKU001', '出货日期': '2026-01-20' }
+    ]);
+    XLSX.utils.book_append_sheet(wb, shipWS, '出货数据');
+    const stockWS = XLSX.utils.json_to_sheet([
+        { '客户': '示例客户', '产品名称': '产品A', '库存数量': 2500, '未交数量': 700, '入库时间': '2026-01-01', '存放区域': '仓库A-1' }
+    ]);
+    XLSX.utils.book_append_sheet(wb, stockWS, '库存数据');
+    XLSX.writeFile(wb, '导入模板_订单出货库存.xlsx');
+    logAction('下载模板', 'data', '', true);
+    showToast('模板已下载', 'success');
+}
+
+/* ====================================================
+   数据看板渲染
+   ==================================================== */
+function renderDashboard() {
+    // ===== 1. 8个关键指标卡片 =====
+    document.getElementById('d-order-count').textContent = DATA.orders.length.toLocaleString();
+    const totalOrderQty = DATA.orders.reduce((s,o) => s + (Number(o.orderQty)||0), 0);
+    document.getElementById('d-order-qty').textContent = totalOrderQty.toLocaleString();
+
+    const shippedOrderCount = DATA.orders.filter(o => (Number(o.orderQty)||0) > 0 && (Number(o.shippedQty)||0) >= (Number(o.orderQty)||0)).length;
+    const shippedOrderQty = DATA.orders.reduce((s,o) => s + (Number(o.shippedQty)||0), 0);
+    document.getElementById('d-shipped-count').textContent = shippedOrderCount.toLocaleString();
+    document.getElementById('d-shipped-qty').textContent = shippedOrderQty.toLocaleString();
+
+    const pendingOrders = DATA.orders.filter(o => Math.max(0,(Number(o.orderQty)||0)-(Number(o.shippedQty)||0)) > 0);
+    const pendingQty = pendingOrders.reduce((s,o) => s + Math.max(0,(Number(o.orderQty)||0)-(Number(o.shippedQty)||0)), 0);
+    document.getElementById('d-pending-count').textContent = pendingOrders.length.toLocaleString();
+    document.getElementById('d-pending-qty').textContent = pendingQty.toLocaleString();
+
+    document.getElementById('d-ship-count').textContent = DATA.shipments.length.toLocaleString();
+    document.getElementById('d-ship-qty').textContent = DATA.shipments.reduce((s,x) => s + (Number(x.shipQty)||0), 0).toLocaleString();
+
+    document.getElementById('d-stock-kinds').textContent = DATA.stock.length.toLocaleString();
+    document.getElementById('d-stock-qty').textContent = DATA.stock.reduce((s,x) => s + (Number(x.stockQty)||0), 0).toLocaleString();
+
+    document.getElementById('d-low-stock').textContent = DATA.stock.filter(s => (Number(s.stockQty)||0) > 0 && (Number(s.stockQty)||0) <= 100).length.toLocaleString();
+    document.getElementById('d-out-stock').textContent = DATA.stock.filter(s => (Number(s.stockQty)||0) === 0).length.toLocaleString();
+
+    // 无订单产品（根据库存列表中的产品状态判断：未交数量为0 且 订单数量也为0）
+    const orderProductMap = {};
+    DATA.orders.forEach(o => {
+        const k = o.product;
+        if(!orderProductMap[k]) orderProductMap[k] = { order:0, shipped:0 };
+        orderProductMap[k].order += (Number(o.orderQty)||0);
+        orderProductMap[k].shipped += (Number(o.shippedQty)||0);
+    });
+    const stockProductMap = {};
+    DATA.stock.forEach(s => { stockProductMap[s.product] = true; });
+    const noOrderProducts = DATA.stock.filter(s => {
+        const op = orderProductMap[s.product];
+        return !op || (op.order === 0 && (op.order - op.shipped) === 0);
+    });
+    document.getElementById('d-no-order').textContent = noOrderProducts.length.toLocaleString();
+
+    // ===== 2. 按客户分组统计 =====
+    const customerMap = {};
+    DATA.orders.forEach(o => {
+        const k = o.customer;
+        if(!customerMap[k]) customerMap[k] = { order:0, shipped:0, pending:0 };
+        const oq = Number(o.orderQty)||0;
+        const sq = Number(o.shippedQty)||0;
+        customerMap[k].order += oq;
+        customerMap[k].shipped += sq;
+        customerMap[k].pending += Math.max(0, oq - sq);
+    });
+    const customerList = Object.entries(customerMap).sort((a,b) => b[1].order - a[1].order);
+    document.getElementById('d-customer-tbody').innerHTML = customerList.length === 0
+        ? `<tr><td colspan="4" style="padding:20px; color:#888;">暂无数据</td></tr>`
+        : customerList.map(([cust, v]) => `<tr>
+            <td style="text-align:left; padding:8px; font-weight:500;">${escapeHtml(cust)}</td>
+            <td style="padding:8px; color:#4a90e2; font-weight:600;">${v.order.toLocaleString()}</td>
+            <td style="padding:8px; color:#27ae60; font-weight:600;">${v.shipped.toLocaleString()}</td>
+            <td style="padding:8px; color:#e67e22; font-weight:700;">${v.pending.toLocaleString()}</td>
+          </tr>`).join('');
+
+    // ===== 3. Top 10 产品（按订单数量） =====
+    const productMap = {};
+    DATA.orders.forEach(o => {
+        const k = o.product;
+        if(!productMap[k]) productMap[k] = { order:0, shipped:0, pending:0 };
+        const oq = Number(o.orderQty)||0;
+        const sq = Number(o.shippedQty)||0;
+        productMap[k].order += oq;
+        productMap[k].shipped += sq;
+        productMap[k].pending += Math.max(0, oq - sq);
+    });
+    const top10Products = Object.entries(productMap).sort((a,b) => b[1].order - a[1].order).slice(0,10);
+    document.getElementById('d-product-tbody').innerHTML = top10Products.length === 0
+        ? `<tr><td colspan="5" style="padding:20px; color:#888;">暂无数据</td></tr>`
+        : top10Products.map(([prod, v], idx) => `<tr>
+            <td style="padding:8px; font-weight:700; color:#888;">${idx+1}</td>
+            <td style="text-align:left; padding:8px; font-weight:500;">${escapeHtml(prod)}</td>
+            <td style="padding:8px; color:#4a90e2; font-weight:600;">${v.order.toLocaleString()}</td>
+            <td style="padding:8px; color:#27ae60; font-weight:600;">${v.shipped.toLocaleString()}</td>
+            <td style="padding:8px; color:#e67e22; font-weight:700;">${v.pending.toLocaleString()}</td>
+          </tr>`).join('');
+
+    // ===== 4. 订单状态饼图 =====
+    const hasOrdersWithQty = DATA.orders.filter(o => (Number(o.orderQty)||0) > 0);
+    const completelyShipped = hasOrdersWithQty.filter(o => (Number(o.shippedQty)||0) >= (Number(o.orderQty)||0)).length;
+    const partialShipped = hasOrdersWithQty.filter(o => {
+        const oq = Number(o.orderQty)||0, sq = Number(o.shippedQty)||0;
+        return sq > 0 && sq < oq;
+    }).length;
+    const notShippedYet = hasOrdersWithQty.filter(o => (Number(o.shippedQty)||0) === 0).length;
+    const noOrderZero = DATA.orders.filter(o => (Number(o.orderQty)||0) === 0).length;
+
+    if(chartOrderStatus) chartOrderStatus.destroy();
+    chartOrderStatus = new Chart(document.getElementById('chart-order-status'), {
+        type: 'pie',
+        data: {
+            labels: ['完全出货', '部分出货', '未出货', '订单数量=0'],
+            datasets: [{
+                data: [completelyShipped, partialShipped, notShippedYet, noOrderZero],
+                backgroundColor: ['#27ae60', '#f39c12', '#e74c3c', '#95a5a6']
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' },
+                datalabels: {
+                    color: '#fff', font: { size: 12, weight: 'bold' },
+                    formatter: (value, ctx) => {
+                        const total = ctx.dataset.data.reduce((a,b) => a+b, 0);
+                        const pct = total ? Math.round(value/total*100) : 0;
+                        return pct > 3 ? value + '\n' + pct + '%' : '';
+                    }
+                }
+            }
+        }
+    });
+
+    // ===== 5. 库存状态饼图 =====
+    const outOfStock = DATA.stock.filter(s => (Number(s.stockQty)||0) === 0).length;
+    const lowStock = DATA.stock.filter(s => {
+        const q = Number(s.stockQty)||0;
+        return q > 0 && q <= 100;
+    }).length;
+    const normalStock = DATA.stock.filter(s => {
+        const q = Number(s.stockQty)||0;
+        return q > 100 && q <= 1000;
+    }).length;
+    const highStock = DATA.stock.filter(s => (Number(s.stockQty)||0) > 1000).length;
+
+    if(chartStockStatus) chartStockStatus.destroy();
+    chartStockStatus = new Chart(document.getElementById('chart-stock-status'), {
+        type: 'pie',
+        data: {
+            labels: ['缺货(=0)', '低库存(1-100)', '正常(101-1000)', '高库存(>1000)'],
+            datasets: [{
+                data: [outOfStock, lowStock, normalStock, highStock],
+                backgroundColor: ['#e74c3c', '#f39c12', '#27ae60', '#4a90e2']
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' },
+                datalabels: {
+                    color: '#fff', font: { size: 12, weight: 'bold' },
+                    formatter: (value, ctx) => {
+                        const total = ctx.dataset.data.reduce((a,b) => a+b, 0);
+                        const pct = total ? Math.round(value/total*100) : 0;
+                        return pct > 3 ? value + '\n' + pct + '%' : '';
+                    }
+                }
+            }
+        }
+    });
+}
+
+/* ====================================================
+   图表渲染
+   ==================================================== */
+function renderStatsChart() {
+    document.getElementById('total-products').textContent = new Set(DATA.stock.map(s => s.product)).size.toLocaleString();
+    document.getElementById('total-stock-qty').textContent = DATA.stock.reduce((s,x) => s + (Number(x.stockQty)||0), 0).toLocaleString();
+    document.getElementById('total-order-qty-2').textContent = DATA.orders.reduce((s,x) => s + (Number(x.orderQty)||0), 0).toLocaleString();
+    document.getElementById('total-ship-qty-2').textContent = DATA.shipments.reduce((s,x) => s + (Number(x.shipQty)||0), 0).toLocaleString();
+
+    const labelOpts = { anchor: 'end', align: 'top', color: '#333', font: { size: 11, weight: 'bold' }, formatter: v => v.toLocaleString() };
+
+    // 库存 Top 10 产品
+    const stockMap = {};
+    DATA.stock.forEach(s => { const k = s.product; stockMap[k] = (stockMap[k] || 0) + (Number(s.stockQty) || 0); });
+    const stockList = Object.entries(stockMap).sort((a,b) => b[1] - a[1]).slice(0, 10);
+
+    if(chartStock) chartStock.destroy();
+    chartStock = new Chart(document.getElementById('chart-stock'), {
+        type: 'bar',
+        data: {
+            labels: stockList.map(x => x[0].slice(0, 15)),
+            datasets: [{ label: '库存数量 (Top 10 产品)', data: stockList.map(x => x[1]), backgroundColor: 'rgba(74,144,226,0.75)', borderRadius: 4 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'top' }, datalabels: labelOpts } }
+    });
+
+    // 近 15 天出货趋势
+    const shipMap = {};
+    DATA.shipments.forEach(s => {
+        const d = fmtDate(s.shipDate);
+        if(d) shipMap[d] = (shipMap[d] || 0) + (Number(s.shipQty) || 0);
+    });
+    const today = new Date();
+    const last15 = [];
+    for(let i = 14; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
+        const key = d.toISOString().slice(0, 10);
+        last15.push({ date: key, value: shipMap[key] || 0 });
+    }
+
+    if(chartShip) chartShip.destroy();
+    chartShip = new Chart(document.getElementById('chart-ship'), {
+        type: 'line',
+        data: {
+            labels: last15.map(x => x.date.slice(5)),
+            datasets: [{
+                label: '出货数量 (近 15 天)', data: last15.map(x => x.value),
+                borderColor: 'rgb(46,204,113)', backgroundColor: 'rgba(46,204,113,0.15)',
+                borderWidth: 2, tension: 0.35, fill: true, pointRadius: 4
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'top' }, datalabels: { ...labelOpts, anchor: 'top', align: 'center', color: '#27ae60' } } }
+    });
+
+    // 未交数量 Top 10 产品
+    const pendingMap = {};
+    DATA.orders.forEach(o => {
+        const k = o.product;
+        const pq = Math.max(0, (Number(o.orderQty) || 0) - (Number(o.shippedQty) || 0));
+        if(pq > 0) pendingMap[k] = (pendingMap[k] || 0) + pq;
+    });
+    const pendingList = Object.entries(pendingMap).sort((a,b) => b[1] - a[1]).slice(0, 10);
+
+    if(chartPending) chartPending.destroy();
+    chartPending = new Chart(document.getElementById('chart-pending'), {
+        type: 'bar',
+        data: {
+            labels: pendingList.map(x => x[0].slice(0, 15)),
+            datasets: [{ label: '未交数量 (Top 10 产品)', data: pendingList.map(x => x[1]), backgroundColor: 'rgba(230,126,34,0.75)', borderRadius: 4 }]
+        },
+        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'top' }, datalabels: { ...labelOpts, anchor: 'end', align: 'right' } } }
+    });
+}
+
+/* ====================================================
+   总渲染 + 初始化
+   ==================================================== */
+function renderAll() {
+    renderOrders();
+    renderShipments();
+    renderStock();
+}
+
+window.onload = function() {
+    if('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./service-worker.js').catch(function(err) {});
+    }
+
+    loadData();
+    loadUsers();
+    loadCloudConfig();
+    loadLogs();
+
+    // 检查会话
+    try {
+        const raw = localStorage.getItem(SESSION_KEY);
+        if(raw) {
+            CURRENT_USER = JSON.parse(raw);
+            enterApp();
+        } else {
+            // 显示登录页
+            document.getElementById('login-page').style.display = 'flex';
+            document.getElementById('main-page').style.display = 'none';
+        }
+    } catch(e) {}
+};
+
+/* ====================================================
+   表头点击排序功能（三个表格通用
+   ==================================================== */
+const SORT_STATE = {
+    order: { key: null, dir: 'desc' },
+    ship: { key: null, dir: 'desc' },
+    stock: { key: null, dir: 'desc' }
+};
+
+// 点击排序主函数
+function sortBy(table, key, num) {
+    const state = SORT_STATE[table];
+    if(state.key === key) {
+        state.dir = state.dir === 'asc' ? 'desc' : 'asc';
+    } else {
+        state.key = key;
+        state.dir = num ? 'desc' : 'asc';
+    }
+    if(table === 'order') renderOrders();
+    if(table === 'ship') renderShipments();
+    if(table === 'stock') renderStock();
+}
+
+// 更新表头排序箭头（table: 'order' | 'ship' | 'stock'
+function updateSortIndicator(table) {
+    const state = SORT_STATE[table];
+    const panel = document.getElementById('panel-' + table);
+    if(!panel) return;
+    const ths = panel.querySelectorAll('th[data-sort]');
+    // 定义表头基础文本（避免重复渲染时文字被破坏）
+    const labelMap = {
+        'order': { customer:'客户', product:'产品名称', orderQty:'订单数量', shippedQty:'已出货', pendingQty:'未交数量', orderDate:'下单日期', dueDate:'交期' },
+        'ship': { customer:'客户', product:'产品名称', shipQty:'出货数量', shipDate:'出货日期' },
+        'stock': { customer:'客户', product:'产品名称', stockQty:'库存数量', pendingQty:'未交数量', stockDate:'入库时间' }
+    };
+    const labels = labelMap[table] || {};
+    ths.forEach(th => {
+        const k = th.getAttribute('data-sort');
+        const label = labels[k] || k;
+        if(k === state.key) {
+            th.innerHTML = label + ' <span style="color:#4a90e2; font-size:11px;">' + (state.dir === 'asc' ? '▲' : '▼') + '</span>';
+        } else {
+            th.innerHTML = label + ' <span style="color:#ccc; font-size:10px;">↕</span>';
+        }
+    });
+}
+
+</script>
+</body>
+</html>
