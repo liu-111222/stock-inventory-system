@@ -9609,6 +9609,21 @@ function renderAll() {
     renderPriceList();
     renderProductInfo();
     renderPurchase();
+    // 确保移动端底部Tab栏有原料采购入口
+    var mRow = document.querySelector('.mobile-tabbar .mt-row');
+    if(mRow && !mRow.querySelector('[data-tab="purchase"]')) {
+        var newTab = document.createElement('div');
+        newTab.className = 'mt-item';
+        newTab.setAttribute('data-tab', 'purchase');
+        newTab.setAttribute('onclick', "switchTab('purchase')");
+        newTab.innerHTML = '<span class="mt-icon"></span><span>采购</span>';
+        var productTab = mRow.querySelector('[data-tab="product"]');
+        if(productTab && productTab.nextSibling) {
+            mRow.insertBefore(newTab, productTab.nextSibling);
+        } else {
+            mRow.appendChild(newTab);
+        }
+    }
 }
 
 window.onload = function() {
